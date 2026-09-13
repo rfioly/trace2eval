@@ -17,31 +17,49 @@ needed, and the same log always produces the same case set.
 """
 
 from .checks import CheckResult, detect_fallback, run_check, run_checks
+from .matchers import char_bigram_jaccard, word_jaccard
 from .runner import RunMetrics, compare_runs, load_outputs, run_cases
 from .schema import Trace, load_traces, parse_trace
-from .select import build_case, select_cases
+from .select import (
+    DEFAULT_DEDUP_THRESHOLD,
+    Matcher,
+    MatcherSpecError,
+    build_case,
+    load_matcher,
+    overlap_coefficient,
+    select_cases,
+    shingle_overlap,
+)
 from .signals import DEFAULT_WEIGHTS, Signal, build_context, compute_signals, score
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "__version__",
     "CheckResult",
+    "DEFAULT_DEDUP_THRESHOLD",
     "DEFAULT_WEIGHTS",
+    "Matcher",
+    "MatcherSpecError",
     "RunMetrics",
     "Signal",
     "Trace",
     "build_case",
     "build_context",
+    "char_bigram_jaccard",
     "compare_runs",
     "compute_signals",
     "detect_fallback",
+    "load_matcher",
     "load_outputs",
     "load_traces",
+    "overlap_coefficient",
     "parse_trace",
     "run_check",
     "run_checks",
     "run_cases",
     "score",
     "select_cases",
+    "shingle_overlap",
+    "word_jaccard",
 ]

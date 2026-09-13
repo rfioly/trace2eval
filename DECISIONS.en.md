@@ -159,6 +159,79 @@ because then a human chose those words.
 
 ---
 
+## 7b. v0.2 closes the other half of that
+
+The fix is to change where the shape comes from: **from the clean answers to the
+same question, not from the one that failed.**
+
+The refund question appears six ways in the log, one of them down-voted. That one is
+a failure seed and cannot be a reference. The other six are clean, and their median
+gives the case its minimum length. When a question has no clean answer at all, there
+is one more fallback: if the failure itself was "this answer is too short", then it
+fell below the log's short-answer line, and that line is used.
+
+That fallback needs a warning attached. **It is a weak reference** — a log-wide
+median, not a per-question one — so it can be too strict for a question whose answers
+are legitimately short. The report labels those cases "the log's short-answer line
+(weak reference)", and they are the first thing to look at when tuning.
+
+It also removed a drift hazard. The short-answer line used to be a bare conditional
+inside `signals.py`. It is now `suspiciously_short_boundary()`, called by both the
+signal and the checks. Without that, changing the threshold and forgetting the checks
+would make a case **quietly** stop reproducing its own failure, which is the worst
+way for something to break.
+
+**Side effect one: cases now check themselves.** Every case runs its own checks
+against its own reference output, and the verdict is written into both `report.md`
+and `cases.jsonl`. Three outcomes:
+
+- a failure seed that **fails** its checks — correct, it reproduces the failure
+- a failure seed that **passes** them — `failure_not_reproduced`: the checks cannot
+  see this failure at all
+- a clean case that fails its checks — `reference_fails_own_checks`: either the
+  reference is wrong or the checks are
+
+That second outcome is the residual weakness, **quantified**. Three of the sixteen
+cases in the sample log land there, all for the same reason: `user_retried`. The user
+asked again; the output was fine. No deterministic check on text detects "the user
+will ask again". That is a limit of the method rather than unfinished work — gating
+it properly needs a **human-labelled expected answer**, and this tool does not
+produce one.
+
+I have deliberately not tried to push that number down. There is exactly one way to
+do it — add checks that fire on things that are actually fine — and that is how a
+gate gets switched off.
+
+**Side effect two: cost stops growing with repetition.** Clustering used to compare
+an incoming trace against **every member** of a candidate cluster, so a question asked
+5,000 times cost 5,000 comparisons for question 5,001. Clusters now keep **distinct
+phrasings** instead (fingerprints are deduplicated), so 5,000 identical rows leave one
+fingerprint to compare against. `MAX_DISTINCT_FINGERPRINTS = 512` is a guessed safety
+valve: past it, extra rows start their own cluster, which yields **duplicate cases**
+rather than **missed ones**. Duplicates over misses.
+
+---
+
+## 7c. The matcher is swappable, but the default does not change
+
+Character n-grams have a fixed blind spot: two paraphrases sharing no characters score
+zero. Fixing it means embeddings, and this package's pitch is that it has no
+dependencies.
+
+So it is not fixed — it is made **swappable**. `--similarity module:function` points at
+your own `(str, str) -> float`. Two alternative matchers ship alongside, plus the
+measured counter-example: on Chinese, `word_jaccard` is **coarser** than the default
+(`支持哪些登录方式` vs `支持哪些支付方式` goes from 0.571 to 0.857). They are working
+examples of the hook, not recommendations.
+
+One cost, stated plainly: a custom matcher disables the n-gram inverted index. That
+index shortlists candidates **lexically**, which is precisely the recall the custom
+matcher was brought in to improve, so keeping it would defeat the point. With it
+disabled, every trace is compared against every cluster, and a large log gets
+noticeably slower.
+
+---
+
 ## 8. No LLM-as-judge
 
 Actively rejected for v0.1, on three grounds:
@@ -192,18 +265,22 @@ code change.
 
 ## What to do next
 
-Ranked by how much they would improve the tool, not by how interesting they are.
+v0.1 listed three items. The first two are done in v0.2 (shape from clean answers,
+cost no longer growing with repetition). What remains, ranked by how much it would
+improve the tool rather than by how interesting it is:
 
-1. **Give failure seeds a shape derived from clean answers.** Today a
-   `fallback_phrase` seed only asserts "must not fall back" — a differently-wrong
-   answer passes. If the same question has clean answers elsewhere in the log,
-   `min_chars` should be derived from *those*, not from the bad reference. This is
-   the single biggest gap. The sample log demonstrates it: breaking a failure-seed
-   case to `订单处理中。` is not caught.
-2. **Blocking keys for occurrence counting.** O(cases × log size) is fine to
-   ~10k rows. An inverted index over cluster shortlists would carry it to
-   millions without changing semantics.
-3. **A labelled dedup evaluation set.** The threshold is tuned on 42 rows. A set
-   of a few hundred hand-labelled pairs, scored as precision/recall at each
-   threshold, would turn a reasonable guess into a defensible default — and would
-   be the tool eating its own dog food.
+1. **Give the three behavioural cases a human-labelled expected answer.** This is the
+   biggest remaining gap and the hardest, because it is not a code problem — it is a
+   workflow problem. The tool needs a way for someone to write down "here is what this
+   question should be answered with", and for that annotation to survive regenerating
+   the case set. I have considered a `--review` command, but I have not worked out
+   where the annotation should live or how it gets matched back up with regenerated
+   cases. I do not know this area well; pointers welcome.
+2. **A labelled dedup evaluation set.** The 0.6 threshold is tuned on 42 rows. A few
+   hundred hand-labelled pairs, scored for precision and recall at each threshold,
+   would turn a reasonable guess into a defensible default. It is also the tool eating
+   its own dog food: the logic it uses to score other people's output is exactly what
+   would score its own threshold.
+3. **Run it on a log of realistic size.** Past 100k rows, two questions: is
+   `MAX_DISTINCT_FINGERPRINTS = 512` enough, and how slow does a custom matcher (index
+   disabled) actually get? Both numbers are still estimates. I have not measured them.

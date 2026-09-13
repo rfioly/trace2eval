@@ -104,34 +104,49 @@ generated 16 cases -> evalset/cases.jsonl
 report -> evalset/report.md
 ```
 
-16 cases from 42 calls. Every case records *why* it was chosen — see
-[`evalset/report.md`](evalset/report.md):
+16 cases from 42 calls. Every case records *why* it was chosen and where its
+expected shape came from — see [`evalset/report.md`](evalset/report.md):
 
 ```markdown
-| Case     | Score | In log | Trusted | Signals                                       | Input                    |
-| -------- | ----- | ------ | ------- | --------------------------------------------- | ------------------------ |
-| case-001 | 8.0   | 1      | no      | negative_feedback, user_retried, output_much… | 订单一直显示处理中，已经三天了 |
-| case-007 | 4.5   | 6      | no      | negative_feedback, output_much_shorter        | 你们的退款政策是什么？       |
-| case-011 | 2.5   | 4      | no      | user_retried                                  | 修改手机号                |
+| Case     | Score | In log | Trusted | Shape from                     | Self-check             | Input                    |
+| -------- | ----- | ------ | ------- | ------------------------------ | ---------------------- | ------------------------ |
+| case-001 | 8.0   | 1      | no      | the log's short-answer line    | ok                     | 订单一直显示处理中，已经三天了 |
+| case-007 | 4.5   | 6      | no      | 5 clean answers to the same …  | ok                     | 你们的退款政策是什么？       |
+| case-011 | 2.5   | 4      | no      | 3 clean answers to the same …  | failure_not_reproduced | 修改手机号                |
 ```
 
-`case-007` is the one to look at. Six different phrasings of the refund question
-went into the log; they became **one** case that knows it stands for six calls.
+`case-007` is the one to look at. Six phrasings of the refund question went into
+the log and became **one** case — and its minimum length was learned from those
+six *clean* answers, not from the one that failed.
 
-Now the gate. A prompt tweak fixes one thing and quietly breaks three others:
+`case-011`'s `failure_not_reproduced` is worth a look too: it flags a case whose
+checks cannot catch the failure it came from. That is a self-reported weak spot,
+not a miss. More on that below.
+
+Now the gate. A prompt tweak fixes one thing and quietly breaks five others:
 
 ```console
 $ trace2eval check --baseline runs/baseline.json --current runs/current.json
 ...
 | Metric                  | Baseline | Current | Rule                                |
 | ----------------------- | -------- | ------- | ----------------------------------- |
-| pass_rate               | 1.0000   | 0.8750  | dropped by 0.1250 (allowed 0.0200)  |
+| pass_rate               | 1.0000   | 0.6875  | dropped by 0.3125 (allowed 0.0200)  |
 | format_compliance_rate  | 1.0000   | 0.5000  | dropped by 0.5000 (allowed 0.0200)  |
 | fallback_rate           | 0        | 0.0625  | rose by 0.0625 (allowed 0.0200)     |
 
 FAIL: 3 regression(s) detected
 $ echo $?
 1
+```
+
+The five failures break down like this:
+
+```
+case-001: min_chars                                    <- answer truncated
+case-002: not_fallback, min_chars                      <- gave up instead of answering
+case-004: json                                         <- declared JSON contract dropped
+case-007: min_chars
+case-011: min_chars
 ```
 
 Reproduce all of the above locally — it is the exact sequence in
@@ -161,10 +176,16 @@ Two design rules do most of the work, and both are explained in
 [`DECISIONS.en.md`](DECISIONS.en.md):
 
 **A reference output is not ground truth.** Most selected traces are selected
-*because* something went wrong with them. So an expected shape is only inferred
-from the output when the trace looks clean; everything else becomes a *regression
-seed* — a case that exists to make sure the same failure never ships twice. The
-report marks which is which under `Trusted`.
+*because* something went wrong with them, so inferring an expected shape from the
+bad output is inferring a shape from a failure. It took two attempts to get right.
+The first version asserted nothing but "must not fall back", and it turned out to
+wave truncation straight through — an answer cut down to `订单处理中。` passed. The
+second version infers the shape from the **clean answers to the same question**,
+which is where the refund case's minimum length comes from: the median of the six
+answers that were fine. When a question has no clean answer anywhere but the failure
+itself was "this answer is too short", the line it fell below is used instead. That
+one is a **weak reference** — flagged as such in the report, and the first number to
+revisit when tuning.
 
 **Surface similarity is the wrong tool for short queries.** We use the overlap
 coefficient rather than Jaccard, because on this log Jaccard ranks two genuinely
@@ -200,25 +221,43 @@ log: it means the model returned nothing.
 
 ---
 
-## What this does not do
+## Where the edges are
 
-Stated up front, because a tool that overstates itself is worse than a small one
-that does not.
+v0.1 listed four weak spots here. v0.2 dealt with all four. What is left is a real
+boundary rather than unpaid debt.
 
-- **No semantic understanding.** Similarity is character n-grams. Two paraphrases
-  that share no characters are treated as different questions. Recall on
-  paraphrase is a known weakness, not an oversight.
-- **Failure seeds carry no shape.** A case derived from a bad output only asserts
-  "this must not fall back". It will not notice a *differently* wrong answer.
-  Inferring a minimum length from the clean answers to the same question is the
-  obvious next step.
-- **No LLM-as-judge.** Open-ended quality ("is this answer good?") is out of
-  scope by design. Judge models cost money and go quiet in CI; everything here is
-  a pure function of the output string.
-- **Nothing is validated for you.** Generated cases are a *proposal*. Read
-  `report.md` before committing a case set.
-- **Occurrence counting is O(cases × log size).** Fine to roughly 10k rows; past
-  that, cluster on a blocking key. Not yet implemented.
+**Semantics.** Similarity is still character n-grams, so two paraphrases sharing no
+characters score zero. I am not going to fix that by taking on a dependency — but it
+is *swappable*: `--similarity module:function` takes your own `(str, str) -> float`,
+so you can point it at an embedding model you already have while this package stays
+dependency-free. Two alternative matchers ship alongside it, plus the measured
+counter-example showing they are coarser than the default on Chinese. Do not just
+reach for them.
+
+**Behavioural failures are invisible to this.** Three of the sixteen cases in the
+sample log failed because *the user asked again* — the output itself was fine. No
+deterministic check on output text can catch that. It is a limit of the method, not
+a gap in the implementation. Those cases are still worth keeping: they pin the input
+and hold the line on "must not fall back". But gating them properly needs a
+**human-labelled expected answer**, and this tool does not produce one. `report.md`
+lists them separately instead of folding them into "covered".
+
+**Similarity comparison is O(cases × distinct phrasings per cluster).** Note: not
+O(cases × log size). A question asked 5,000 times leaves one fingerprint to compare
+against, not 5,000. Past 512 distinct phrasings in one cluster, extra rows start
+their own cluster — which produces duplicate cases rather than missed ones. Prefer
+duplicates over misses. The 512 is a guess and has not been load-tested, so treat it
+as a starting point. Honestly, I have not run this against a ten-million-row log yet.
+
+**No LLM-as-judge.** Open-ended quality ("is this answer good?") is out of scope by
+design. Judge models cost money and go quiet in CI, and DeepEval, Ragas and
+promptfoo already do that job well. Everything here is a pure function of the output
+string.
+
+**Generated cases are still a proposal.** But now a proposal that *checks itself*:
+every case runs its own checks against its own reference output, and the verdict
+lands in `report.md`. A "clean" case that fails its own checks gets listed for you.
+
 
 ---
 
@@ -232,15 +271,25 @@ src/trace2eval/
   checks.py    deterministic output checks
   runner.py    scoring and regression comparison
   report.py    markdown rendering
-tests/         25 tests; the dedup ones encode measured trade-offs
+  matchers.py  swappable similarity, including a usable counter-example
+tests/         42 tests; the dedup ones encode measured trade-offs
 examples/      a 42-row sample log plus a baseline and a regressed run
 evalset/       committed build output, so you can read it without running anything
 ```
 
 ## Status
 
-v0.1.0 — usable, honest about its edges. The three things worth doing next are
-in [`DECISIONS.en.md`](DECISIONS.en.md#what-to-do-next).
+v0.2.0. Three and a half of v0.1's four weak spots are closed; the half that remains
+is a limit of the method, written up under [Where the edges are](#where-the-edges-are).
+What I would do next is in
+[`DECISIONS.en.md`](DECISIONS.en.md#what-to-do-next).
+
+What changed between versions:
+
+| | |
+| --- | --- |
+| v0.1.0 | Worked. Failure seeds asserted only "must not fall back", so truncated answers slipped through. |
+| v0.2.0 | Failure seeds learn their shape from clean answers to the same question, with the log's short-answer line as a fallback; every case self-checks against its own reference; clusters deduplicate by phrasing so cost stops growing with repetition; the matcher is swappable. |
 
 ## License
 

@@ -29,7 +29,12 @@ from .runner import (
     run_cases,
 )
 from .schema import TraceFormatError, load_traces
-from .select import DEFAULT_DEDUP_THRESHOLD, select_cases
+from .select import (
+    DEFAULT_DEDUP_THRESHOLD,
+    MatcherSpecError,
+    load_matcher,
+    select_cases,
+)
 
 EXIT_OK = 0
 EXIT_GATE_FAILED = 1
@@ -75,11 +80,20 @@ def cmd_build(args: argparse.Namespace) -> int:
                 print(f"  line {line_no}: {reason}", file=sys.stderr)
         return EXIT_BAD_INPUT
 
+    matcher = None
+    if args.similarity:
+        try:
+            matcher = load_matcher(args.similarity)
+        except MatcherSpecError as exc:
+            print(f"error: --similarity {exc}", file=sys.stderr)
+            return EXIT_BAD_INPUT
+
     result = select_cases(
         loaded.traces,
         max_cases=args.max_cases,
         min_score=args.min_score,
         dedup_threshold=args.dedup_threshold,
+        matcher=matcher,
     )
 
     out_dir = Path(args.out)
@@ -92,10 +106,25 @@ def cmd_build(args: argparse.Namespace) -> int:
     print(f"read {stats['total_traces']} traces from {args.traces}")
     if loaded.skipped:
         print(f"  skipped {loaded.skipped_count} unreadable line(s)")
+    if matcher is not None:
+        print(
+            "  custom similarity matcher: the n-gram index is bypassed, "
+            "so this run compares against every cluster"
+        )
     print(f"generated {stats['cases']} cases -> {out_dir / 'cases.jsonl'}")
     print(f"  {stats['dropped_as_duplicate']} collapsed as near-duplicates")
     print(f"  {stats['dropped_below_min_score']} below the minimum score")
     print(f"  {stats['dropped_beyond_limit']} beyond the case limit")
+    if stats["cases_whose_reference_fails"]:
+        print(
+            f"  {stats['cases_whose_reference_fails']} trusted reference(s) fail their "
+            f"own checks -- look at these before committing the set"
+        )
+    if stats["cases_with_weak_checks"]:
+        print(
+            f"  {stats['cases_with_weak_checks']} case(s) carry checks that cannot "
+            f"detect the failure they came from"
+        )
     print(f"report -> {out_dir / 'report.md'}")
     return EXIT_OK
 
@@ -206,6 +235,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "overlap similarity above which two inputs are treated as the same "
             f"question (default: {DEFAULT_DEDUP_THRESHOLD})"
+        ),
+    )
+    build.add_argument(
+        "--similarity",
+        default=None,
+        metavar="MODULE:FUNCTION",
+        help=(
+            "swap in your own matcher, e.g. 'my_embeddings:cosine'. Must take two "
+            "strings and return a score in [0, 1]. Disables the n-gram index, so "
+            "clustering gets slower -- see trace2eval.matchers."
         ),
     )
     build.set_defaults(func=cmd_build)

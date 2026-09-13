@@ -139,8 +139,12 @@ def test_regex_check_survives_a_bad_pattern():
 # --------------------------------------------------------------------------- #
 
 
-def test_failure_seed_is_not_used_as_a_shape_reference():
-    """The reference output is the *bad* output, so no shape may be inferred."""
+def test_failure_seed_without_a_clean_sibling_gets_no_shape():
+    """The output that failed is never used as a shape reference.
+
+    With nothing else in the log to learn from, all the case can honestly assert is
+    that the answer is not empty and does not fall back.
+    """
     trace = Trace(
         id="t1",
         input="我要投诉",
@@ -152,9 +156,79 @@ def test_failure_seed_is_not_used_as_a_shape_reference():
     cluster = Cluster(trace, signals, score(signals), [trace.id])
     case = build_case(1, cluster)
 
-    assert [check["type"] for check in case["checks"]] == ["not_fallback"]
+    assert [check["type"] for check in case["checks"]] == ["not_fallback", "min_chars"]
+    assert case["checks"][1]["value"] == 1, "only 'not empty' is knowable here"
     assert case["reference_is_trusted"] is False
-    assert any("failure seed" in note for note in case["notes"])
+    assert case["self_check"]["verdict"] == "failure_not_reproduced"
+    assert any("no clean sibling" in note for note in case["notes"])
+
+
+def test_failure_seed_learns_its_shape_from_clean_siblings():
+    """The headline v0.2.0 change: shape comes from the answers that were fine."""
+    bad = Trace(
+        id="bad",
+        input="你们的退款政策是什么？",
+        output="退款会在 14 天内处理。",
+        feedback="negative",
+    )
+    clean = Trace(
+        id="clean",
+        input="退款政策",
+        output="退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。",
+    )
+    context = build_context([bad, clean])
+    signals = compute_signals(bad, context)
+    cluster = Cluster(
+        bad,
+        signals,
+        score(signals),
+        [bad.id, clean.id],
+        clean_outputs=[clean.output],
+    )
+    case = build_case(1, cluster)
+
+    assert [check["type"] for check in case["checks"]] == ["not_fallback", "min_chars"]
+    assert case["checks"][1]["value"] == max(8, int(len(clean.output) * 0.4))
+    assert case["shape_source"] == "the one clean answer to this question"
+
+    # The failing output is short, so the checks now catch it -- on shape rather
+    # than on the original feedback signal. That is the whole point: before
+    # v0.2.0 this case asserted nothing but "must not fall back".
+    assert case["self_check"]["verdict"] == "ok"
+    assert case["self_check"]["failed_checks"] == ["min_chars"]
+
+
+def test_self_check_flags_a_seed_it_cannot_detect():
+    """A failure seed whose checks pass on the bad output is reported, not hidden."""
+    trace = Trace(id="t1", input="修改手机号", output="修改绑定手机号需要先通过原手机号接收验证码。", retried=True)
+    signals = compute_signals(trace, build_context([trace]))
+    cluster = Cluster(trace, signals, score(signals), [trace.id])
+    case = build_case(1, cluster)
+
+    # The failure here was behavioural (the user asked twice); nothing in the
+    # output looks wrong, so no deterministic check can reproduce it.
+    assert case["self_check"]["passed"] is True
+    assert case["self_check"]["verdict"] == "failure_not_reproduced"
+    assert any("self-check" in note for note in case["notes"])
+
+
+def test_sample_log_reports_its_own_weak_cases():
+    """The residual blind spot is counted, not glossed over."""
+    loaded = load_traces(SAMPLE_LOG)
+    result = select_cases(loaded.traces)
+
+    weak = result.cases_with_weak_checks
+    assert weak, "the sample log contains behavioural failures no check can catch"
+    assert all(case["self_check"]["verdict"] == "failure_not_reproduced" for case in weak)
+    assert result.stats()["cases_with_weak_checks"] == len(weak)
+
+    # Failure seeds whose checks DO fire must be the ones with a real, visible defect.
+    reproduced = [
+        case
+        for case in result.cases
+        if not case["reference_is_trusted"] and case["self_check"]["passed"] is False
+    ]
+    assert reproduced, "fallback and shape failures should be caught by their own checks"
 
 
 def test_clean_json_trace_infers_a_schema():

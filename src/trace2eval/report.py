@@ -50,6 +50,14 @@ def build_report(result: SelectionResult, source_name: str) -> str:
     lines.append(f"| Log lines collapsed into a case | {stats['dropped_as_duplicate']} |")
     lines.append(f"| Questions below the minimum score | {stats['dropped_below_min_score']} |")
     lines.append(f"| Questions beyond the case limit | {stats['dropped_beyond_limit']} |")
+    lines.append(
+        f"| Cases whose checks cannot catch their own failure "
+        f"| {stats['cases_with_weak_checks']} |"
+    )
+    lines.append(
+        f"| Trusted references failing their own checks "
+        f"| {stats['cases_whose_reference_fails']} |"
+    )
     lines.append("")
 
     lines.append("## Log-wide baselines")
@@ -76,21 +84,57 @@ def build_report(result: SelectionResult, source_name: str) -> str:
 
     lines.append("## Cases")
     lines.append("")
-    lines.append("| Case | Score | In log | Trusted | Signals | Input |")
-    lines.append("| --- | --- | --- | --- | --- | --- |")
+    lines.append("| Case | Score | In log | Trusted | Shape from | Self-check | Signals | Input |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
     for case in result.cases:
         signal_names = ", ".join(signal["name"] for signal in case["signals"])
         lines.append(
-            "| {id} | {score} | {occurs} | {trusted} | {signals} | {input} |".format(
+            "| {id} | {score} | {occurs} | {trusted} | {shape} | {check} | {signals} | {input} |".format(
                 id=_cell(case["id"], 12),
                 score=_cell(case["score"], 8),
                 occurs=_cell(case["occurrences_in_log"], 8),
                 trusted="yes" if case["reference_is_trusted"] else "no",
-                signals=_cell(signal_names, 48),
-                input=_cell(case["input"], 48),
+                shape=_cell(case["shape_source"], 30),
+                check=_cell(case["self_check"]["verdict"], 30),
+                signals=_cell(signal_names, 42),
+                input=_cell(case["input"], 40),
             )
         )
     lines.append("")
+
+    flagged = result.cases_whose_reference_fails + result.cases_with_weak_checks
+    if flagged:
+        lines.append("## Cases that need a human eye")
+        lines.append("")
+        lines.append(
+            "Generated cases are a proposal. These are the ones where the proposal "
+            "is weakest, in order of how much they should worry you."
+        )
+        lines.append("")
+        for case in result.cases_whose_reference_fails:
+            lines.append(
+                f"- **{case['id']}** — a trusted reference does not satisfy its own "
+                f"checks (`{', '.join(case['self_check']['failed_checks'])}`). Either "
+                f"the reference is wrong or the checks are."
+            )
+        for case in result.cases_with_weak_checks:
+            if case["failure_kind"] == "behaviour":
+                lines.append(
+                    f"- {case['id']} — the failure here was behavioural "
+                    f"(`{', '.join(signal['name'] for signal in case['signals'])}`): the "
+                    f"call itself produced a perfectly acceptable answer, and what went "
+                    f"wrong happened around it. No check on the output text can "
+                    f"reproduce that. Keep the case as a pinned input, but it needs a "
+                    f"labelled expected answer before it can gate anything."
+                )
+            else:
+                lines.append(
+                    f"- {case['id']} — the failure was visible in the output "
+                    f"(`{', '.join(signal['name'] for signal in case['signals'])}`), yet "
+                    f"the generated checks pass on it. That is a gap in the checks, not "
+                    f"a limit of the approach -- worth investigating."
+                )
+        lines.append("")
 
     if result.cases:
         lines.append("## Why the top case was chosen")
@@ -100,6 +144,30 @@ def build_report(result: SelectionResult, source_name: str) -> str:
         lines.append("")
         for signal in top["signals"]:
             lines.append(f"- `{signal['name']}` (+{signal['weight']}) — {signal['detail']}")
+        lines.append("")
+        lines.append(f"The expected shape came from {top['shape_source']}.")
+        lines.append("")
+        check = top["self_check"]
+        if top["reference_is_trusted"]:
+            lines.append(
+                "Self-check: this is a trusted reference, and it "
+                + ("satisfies its own checks." if check["passed"] else "does NOT satisfy them.")
+            )
+        else:
+            if not check["passed"]:
+                detail = (
+                    f"fail on it — they do, on `{', '.join(check['failed_checks'])}`. "
+                    "The case reproduces the failure it came from."
+                )
+            else:
+                detail = (
+                    "fail on it — they do not. The case cannot detect the failure it "
+                    "came from, which is why it appears in the list above."
+                )
+            lines.append(
+                "Self-check: this is a failure seed, so the checks are *supposed* to "
+                + detail
+            )
         lines.append("")
         for note in top["notes"]:
             lines.append(f"> {note}")

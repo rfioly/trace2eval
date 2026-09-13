@@ -13,6 +13,7 @@ weights, and weights add up into a score. The score decides what gets promoted.
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from dataclasses import dataclass, field
 from typing import Any, Iterable
@@ -36,11 +37,39 @@ DEFAULT_WEIGHTS: dict[str, float] = {
 }
 
 #: An output shorter than this is treated as suspicious on its own.
-_MIN_PLAUSIBLE_CHARS = 12
+MIN_PLAUSIBLE_CHARS = 12
 
 #: A response is "much shorter/longer" past these ratios against the log median.
-_SHORT_RATIO = 0.5
-_LONG_RATIO = 3.0
+SHORT_RATIO = 0.5
+LONG_RATIO = 3.0
+
+# Backwards-compatible private aliases; the underscore names are historical.
+_MIN_PLAUSIBLE_CHARS = MIN_PLAUSIBLE_CHARS
+_SHORT_RATIO = SHORT_RATIO
+_LONG_RATIO = LONG_RATIO
+
+
+def is_suspiciously_short(chars: int, median_output_chars: float) -> bool:
+    """Whether a response this long counts as too short for this log."""
+    if median_output_chars <= 0:
+        return False
+    return (
+        chars < median_output_chars * SHORT_RATIO
+        and chars < MIN_PLAUSIBLE_CHARS * 2
+    )
+
+
+def suspiciously_short_boundary(median_output_chars: float) -> int | None:
+    """The length a response had to fall below to be flagged as too short.
+
+    Exposed because the generated *checks* need the same number the *signal* used.
+    Deriving both from one function is the only way to stop them drifting apart:
+    if the threshold moved and the checks did not follow, a case built from a
+    length failure would stop reproducing its own failure, silently.
+    """
+    if median_output_chars <= 0:
+        return None
+    return int(math.ceil(min(median_output_chars * SHORT_RATIO, MIN_PLAUSIBLE_CHARS * 2)))
 
 
 @dataclass
@@ -135,12 +164,12 @@ def compute_signals(
             add("fallback_phrase", f"output contains {fallback!r}")
 
         median = context.median_output_chars
-        if median > 0 and chars < median * _SHORT_RATIO and chars < _MIN_PLAUSIBLE_CHARS * 2:
+        if is_suspiciously_short(chars, median):
             add(
                 "output_much_shorter",
                 f"{chars} chars vs log median {median:.0f}",
             )
-        elif median > 0 and chars > median * _LONG_RATIO:
+        elif median > 0 and chars > median * LONG_RATIO:
             add(
                 "output_much_longer",
                 f"{chars} chars vs log median {median:.0f}",
