@@ -3,7 +3,11 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "trace2eval"
+# The plain name "trace2eval" is taken on PyPI by an empty placeholder whose
+# summary is literally "Reserved package" (621-byte sdist). Hence the -cli
+# suffix on the distribution name. The console script is still "trace2eval",
+# so the command users type is unchanged.
+name = "trace2eval-cli"
 version = "0.2.0"
 description = "Turn production LLM traces into a regression eval set. Zero dependencies."
 readme = "README.md"
@@ -20,10 +24,15 @@ keywords = [
     "ci",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -37,6 +46,8 @@ trace2eval = "trace2eval.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/rfioly/trace2eval"
+Source = "https://github.com/rfioly/trace2eval"
+Issues = "https://github.com/rfioly/trace2eval/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
