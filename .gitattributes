@@ -1,0 +1,12 @@
+# Normalise line endings to LF everywhere.
+#
+# This is not cosmetic. CI asserts that a freshly generated case set is
+# byte-identical to the committed one (`.github/workflows/ci.yml`, job
+# `reproducibility`). If a Windows checkout silently rewrites line endings, that
+# assertion fails for a reason that has nothing to do with the code.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

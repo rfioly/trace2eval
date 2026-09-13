@@ -1,0 +1,16 @@
+{"id": "case-001", "source_trace_id": "req-0017", "output": "订单通常会在 24 小时内完成处理。如果超过 48 小时仍显示处理中，说明物流环节可能异常，请联系人工客服并提供订单号，我们会为你加急核查。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-002", "source_trace_id": "req-0028", "output": "很抱歉给你带来不好的体验。你可以通过「帮助中心 - 投诉建议」提交投诉，我们会在 1 个工作日内联系你，也可以直接致电客服热线。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-003", "source_trace_id": "req-0020", "output": "可以用标准库里的 csv 模块，不需要额外安装依赖：用 open 打开文件并指定 encoding，再用 csv.DictReader 逐行读取，每一行就是一个字典。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-004", "source_trace_id": "req-0023", "output": "{\"status\":\"shipped\",\"carrier\":\"SF\",\"tracking_no\":\"SF1234567890\"}", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-005", "source_trace_id": "req-0041", "output": "可以。实物商品签收后 7 天内支持无理由退款，虚拟商品一经激活不支持退款。你可以在「我的订单」里点击申请退款。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-006", "source_trace_id": "req-0026", "output": "验证码已重新发送，请在 5 分钟内输入。如果仍未收到，请检查手机的短信拦截设置，或者稍后再试一次。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-007", "source_trace_id": "req-0001", "output": "退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-008", "source_trace_id": "req-0027", "output": "请把文档内容粘贴过来，或者把文件上传给我，我会为你整理出要点、结论和待办事项三部分。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-009", "source_trace_id": "req-0025", "output": "请在「我的订单」里点击对应订单查看物流轨迹。如果需要我帮你查询，请提供订单号。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-010", "source_trace_id": "req-0022", "output": "可以，请提供你的订单号，我帮你查询当前的处理状态和物流进度。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-011", "source_trace_id": "req-0009", "output": "修改绑定手机号需要先通过原手机号接收验证码，验证通过后在账户设置里填写新号码。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-012", "source_trace_id": "req-0014", "output": "API 密钥可以在控制台的「开发者」页面重新生成，旧密钥会在 24 小时后自动失效。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-013", "source_trace_id": "req-0018", "output": "订单通常会在 24 小时内完成处理。如果超过 48 小时仍显示处理中，请联系人工客服，我们会优先核查。", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-014", "source_trace_id": "req-0032", "output": "{\"balance\":1280.50,\"currency\":\"CNY\"}", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-015", "source_trace_id": "req-0021", "output": "你好，我是智能助手，可以帮你查询订单、退款、账户和安全相关的问题。请问需要什么帮助？", "latency_ms": 820, "cost_usd": 0.00021}
+{"id": "case-016", "source_trace_id": "req-0024", "output": "汇率是实时变动的，我这里没有实时行情数据。建议你在银行或者外汇平台的官方页面上查询最新牌价。", "latency_ms": 820, "cost_usd": 0.00021}

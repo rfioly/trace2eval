@@ -1,0 +1,42 @@
+{"id":"req-0001","timestamp":"2026-09-12T09:02:11Z","input":"你们的退款政策是什么？","output":"退款会在 14 天内处理。","latency_ms":900,"cost_usd":0.00018,"feedback":"negative","retried":false}
+{"id":"req-0002","timestamp":"2026-09-12T09:04:37Z","input":"退款政策是怎样的","output":"退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。","latency_ms":780,"cost_usd":0.00022,"feedback":null,"retried":false}
+{"id":"req-0003","timestamp":"2026-09-12T09:06:02Z","input":"请问退款政策","output":"退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。","latency_ms":640,"cost_usd":0.00021,"feedback":null,"retried":false}
+{"id":"req-0004","timestamp":"2026-09-12T09:11:48Z","input":"退款政策是什么","output":"退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。","latency_ms":1020,"cost_usd":0.00023,"feedback":null,"retried":false}
+{"id":"req-0005","timestamp":"2026-09-12T09:15:29Z","input":"我想了解退款政策","output":"退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。","latency_ms":560,"cost_usd":0.00019,"feedback":null,"retried":false}
+{"id":"req-0006","timestamp":"2026-09-12T09:19:55Z","input":"退款政策？？","output":"退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。","latency_ms":880,"cost_usd":0.00022,"feedback":null,"retried":false}
+{"id":"req-0007","timestamp":"2026-09-12T09:23:14Z","input":"退款政策","output":"退款申请提交后会在 14 个工作日内原路退回，具体到账时间取决于你的支付渠道。","latency_ms":720,"cost_usd":0.0002,"feedback":null,"retried":false}
+{"id":"req-0008","timestamp":"2026-09-12T09:31:07Z","input":"怎么修改绑定的手机号","output":"修改绑定手机号需要先通过原手机号接收验证码，验证通过后在账户设置里填写新号码。","latency_ms":810,"cost_usd":0.00024,"feedback":null,"retried":false}
+{"id":"req-0009","timestamp":"2026-09-12T09:34:42Z","input":"修改手机号","output":"修改绑定手机号需要先通过原手机号接收验证码，验证通过后在账户设置里填写新号码。","latency_ms":1400,"cost_usd":0.00026,"feedback":null,"retried":true}
+{"id":"req-0010","timestamp":"2026-09-12T09:38:20Z","input":"我要改手机号","output":"修改绑定手机号需要先通过原手机号接收验证码，验证通过后在账户设置里填写新号码。","latency_ms":690,"cost_usd":0.00021,"feedback":null,"retried":false}
+{"id":"req-0011","timestamp":"2026-09-12T09:41:03Z","input":"手机号怎么换","output":"修改绑定手机号需要先通过原手机号接收验证码，验证通过后在账户设置里填写新号码。","latency_ms":950,"cost_usd":0.00025,"feedback":null,"retried":false}
+{"id":"req-0012","timestamp":"2026-09-12T09:45:36Z","input":"更换绑定手机号","output":"修改绑定手机号需要先通过原手机号接收验证码，验证通过后在账户设置里填写新号码。","latency_ms":730,"cost_usd":0.0002,"feedback":null,"retried":false}
+{"id":"req-0013","timestamp":"2026-09-12T10:01:19Z","input":"API 密钥怎么轮换","output":"API 密钥可以在控制台的「开发者」页面重新生成，旧密钥会在 24 小时后自动失效。","latency_ms":700,"cost_usd":0.00019,"feedback":null,"retried":false}
+{"id":"req-0014","timestamp":"2026-09-12T10:04:55Z","input":"API key 轮换","output":"API 密钥可以在控制台的「开发者」页面重新生成，旧密钥会在 24 小时后自动失效。","latency_ms":1600,"cost_usd":0.00027,"feedback":null,"retried":true}
+{"id":"req-0015","timestamp":"2026-09-12T10:08:31Z","input":"怎么更新 API 密钥","output":"API 密钥可以在控制台的「开发者」页面重新生成，旧密钥会在 24 小时后自动失效。","latency_ms":820,"cost_usd":0.00022,"feedback":null,"retried":false}
+{"id":"req-0016","timestamp":"2026-09-12T10:12:08Z","input":"密钥轮换方式","output":"API 密钥可以在控制台的「开发者」页面重新生成，旧密钥会在 24 小时后自动失效。","latency_ms":640,"cost_usd":0.00018,"feedback":null,"retried":false}
+{"id":"req-0017","timestamp":"2026-09-12T10:22:47Z","input":"订单一直显示处理中，已经三天了","output":"订单通常会在 24 小时内完成处理。","latency_ms":6100,"cost_usd":0.00041,"feedback":"negative","retried":true}
+{"id":"req-0018","timestamp":"2026-09-12T10:26:13Z","input":"订单还在处理中","output":"订单通常会在 24 小时内完成处理，如果超过 48 小时仍显示处理中，请联系人工客服。","latency_ms":1200,"cost_usd":0.0003,"feedback":null,"retried":true}
+{"id":"req-0019","timestamp":"2026-09-12T10:29:50Z","input":"订单处理要多久","output":"订单通常会在 24 小时内完成处理，如果超过 48 小时仍显示处理中，请联系人工客服。","latency_ms":880,"cost_usd":0.00021,"feedback":null,"retried":false}
+{"id":"req-0020","timestamp":"2026-09-12T10:41:32Z","input":"帮我写一段 Python 代码读取 CSV 文件","output":"作为一个AI，我无法提供这个信息。","latency_ms":2400,"cost_usd":0.00035,"feedback":"negative","retried":false}
+{"id":"req-0021","timestamp":"2026-09-12T10:45:09Z","input":"你好","output":"好的。","latency_ms":320,"cost_usd":0.00005,"feedback":null,"retried":false}
+{"id":"req-0022","timestamp":"2026-09-12T10:49:44Z","input":"你能帮我查一下我的订单吗","output":"","latency_ms":1500,"cost_usd":0.00012,"feedback":null,"retried":false}
+{"id":"req-0023","timestamp":"2026-09-12T10:53:21Z","input":"返回订单状态的 JSON","output":"订单状态正常，已发货。","latency_ms":1100,"cost_usd":0.00024,"feedback":null,"retried":false,"expect":{"json":true,"required":["status"]}}
+{"id":"req-0024","timestamp":"2026-09-12T11:02:58Z","input":"现在汇率是多少","output":"我不知道。","latency_ms":900,"cost_usd":0.00011,"feedback":null,"retried":false}
+{"id":"req-0025","timestamp":"2026-09-12T11:08:35Z","input":"查询物流","output":"请联系客服。","latency_ms":4000,"cost_usd":0.0006,"feedback":null,"retried":false}
+{"id":"req-0026","timestamp":"2026-09-12T11:14:12Z","input":"重新发送验证码","output":"请稍后再试。","latency_ms":5200,"cost_usd":0.0042,"feedback":null,"retried":true}
+{"id":"req-0027","timestamp":"2026-09-12T11:19:49Z","input":"帮我总结这篇文档","output":"暂时无法回答。","latency_ms":3100,"cost_usd":0.0031,"feedback":null,"retried":false}
+{"id":"req-0028","timestamp":"2026-09-12T11:26:26Z","input":"我要投诉","output":"请稍后再试。","latency_ms":2000,"cost_usd":0.00033,"feedback":"negative","retried":true}
+{"id":"req-0029","timestamp":"2026-09-12T11:33:03Z","input":"怎么取消订阅","output":"试用期是 14 天，期间可以随时取消，取消后不会再产生任何费用。","latency_ms":760,"cost_usd":0.0002,"feedback":"positive","retried":false}
+{"id":"req-0030","timestamp":"2026-09-12T11:39:40Z","input":"支持哪些登录方式","output":"你可以把邮箱和密码改为使用手机号加验证码登录，具体入口在「账户与安全」页面。","latency_ms":700,"cost_usd":0.00023,"feedback":null,"retried":false}
+{"id":"req-0031","timestamp":"2026-09-12T11:46:17Z","input":"以 JSON 返回当前会话状态","output":"{\"status\":\"ok\",\"message\":\"请求已受理\",\"ticket_id\":\"T-20260912-0417\"}","latency_ms":980,"cost_usd":0.00028,"feedback":null,"retried":false}
+{"id":"req-0032","timestamp":"2026-09-12T11:52:54Z","input":"返回账户余额","output":"{\"balance\":1280.50,\"currency\":\"CNY\"}","latency_ms":840,"cost_usd":0.00022,"feedback":null,"retried":false,"expect":{"json":true,"required":["balance"]}}
+{"id":"req-0033","timestamp":"2026-09-12T12:01:31Z","input":"支持哪些支付方式","output":"支持微信支付、支付宝、银行卡三种方式，其中银行卡仅支持境内发行的储蓄卡。","latency_ms":620,"cost_usd":0.00019,"feedback":null,"retried":false}
+{"id":"req-0034","timestamp":"2026-09-12T12:08:08Z","input":"能开发票吗","output":"发票会在订单完成后 3 个工作日内开具，可以在「我的订单」里下载电子发票。","latency_ms":900,"cost_usd":0.00025,"feedback":null,"retried":false}
+{"id":"req-0035","timestamp":"2026-09-12T12:14:45Z","input":"物流用哪家","output":"目前支持顺丰和京东物流，偏远地区可能需要额外 1 到 2 天。","latency_ms":580,"cost_usd":0.00017,"feedback":null,"retried":false}
+{"id":"req-0036","timestamp":"2026-09-12T12:21:22Z","input":"企业版怎么收费","output":"企业版需要 5 个席位起订，具体报价请留下联系方式，销售会在一个工作日内联系你。","latency_ms":1100,"cost_usd":0.00031,"feedback":null,"retried":false}
+{"id":"req-0037","timestamp":"2026-09-12T12:27:59Z","input":"页面报错怎么办","output":"建议你先检查网络连接，如果问题仍然存在，可以把错误截图发给我们进一步排查。","latency_ms":940,"cost_usd":0.00026,"feedback":null,"retried":false}
+{"id":"req-0038","timestamp":"2026-09-12T12:34:36Z","input":"登录不上","output":"登录失败通常是因为密码错误超过 5 次导致账户被临时锁定，等待 15 分钟后可以重试。","latency_ms":870,"cost_usd":0.00024,"feedback":null,"retried":false}
+{"id":"req-0039","timestamp":"2026-09-12T12:41:13Z","input":"你们会把我的数据卖给别人吗","output":"我们不会向第三方出售你的个人信息，详细的处理方式可以查看隐私政策第 3 节。","latency_ms":810,"cost_usd":0.00023,"feedback":"positive","retried":false}
+{"id":"req-0040","timestamp":"2026-09-12T12:47:50Z","input":"怎么联系人工客服","output":"人工客服的工作时间是每天 9 点到 21 点，可以在应用内的「帮助中心」发起会话。","latency_ms":660,"cost_usd":0.0002,"feedback":null,"retried":false}
+{"id":"req-0041","timestamp":"2026-09-12T12:54:27Z","input":"能不能退款","output":"抱歉，我无法处理这个请求。","latency_ms":1900,"cost_usd":0.00029,"feedback":"negative","retried":false}
+{"id":"req-0042","timestamp":"2026-09-12T13:01:04Z","input":"账单为什么变多了","output":"账单增加通常是因为套餐在到期后自动续费，你可以在「订阅管理」里查看每一笔扣费明细。","latency_ms":830,"cost_usd":0.00027,"feedback":null,"retried":false}

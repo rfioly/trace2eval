@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: tests (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Run the test suite
+        run: pytest
+
+  reproducibility:
+    name: the same log produces the same case set
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e .
+      - name: Rebuild and diff against the committed case set
+        run: |
+          trace2eval build examples/sample_traces.jsonl -o build/evalset
+          diff -u evalset/cases.jsonl build/evalset/cases.jsonl
+
+  gate:
+    name: the gate rejects a known regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e .
+      - name: Score the clean run
+        run: |
+          trace2eval run \
+            --cases evalset/cases.jsonl \
+            --outputs examples/outputs_baseline.jsonl \
+            -o build/baseline.json
+      - name: Score the regressed run
+        run: |
+          trace2eval run \
+            --cases evalset/cases.jsonl \
+            --outputs examples/outputs_regressed.jsonl \
+            -o build/current.json
+      - name: The gate must fail
+        run: |
+          # examples/outputs_regressed.jsonl is a deliberately broken run. If the
+          # gate does NOT reject it, the gate is broken -- which is the failure
+          # mode this job exists to catch, so it is asserted rather than assumed.
+          if trace2eval check --baseline build/baseline.json --current build/current.json; then
+            echo "::error::the gate accepted a run with 3 known regressions"
+            exit 1
+          fi
+          echo "gate correctly rejected the regression"
+      - name: The clean run must pass
+        run: |
+          trace2eval check --baseline build/baseline.json --current build/baseline.json

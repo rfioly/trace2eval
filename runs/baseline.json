@@ -1,0 +1,21 @@
+{
+  "version": "0.1.0",
+  "metrics": {
+    "total": 16,
+    "passed": 16,
+    "failed": 0,
+    "missing": 0,
+    "pass_rate": 1.0,
+    "fallback_count": 0,
+    "fallback_rate": 0.0,
+    "json_cases": 2,
+    "json_passed": 2,
+    "format_compliance_rate": 1.0,
+    "avg_latency_ms": 820.0,
+    "p95_latency_ms": 820.0,
+    "avg_cost_usd": 0.00021,
+    "total_cost_usd": 0.00336,
+    "avg_output_chars": 49.4,
+    "failures": []
+  }
+}
