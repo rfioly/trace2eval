@@ -15,6 +15,8 @@ Source log: `examples/sample_traces.jsonl`
 | Questions beyond the case limit | 0 |
 | Cases whose checks cannot catch their own failure | 3 |
 | Trusted references failing their own checks | 0 |
+| Cases using a human-written expectation | 3 |
+| Cases still needing one | 0 |
 
 ## Log-wide baselines
 
@@ -43,20 +45,20 @@ Source log: `examples/sample_traces.jsonl`
 | case-008 | 4.5 | 1 | no | the log's short-answer line (… | ok | fallback_phrase, output_much_shorter, exp… | 帮我总结这篇文档 |
 | case-009 | 3.5 | 1 | no | the log's short-answer line (… | ok | output_much_shorter, slow_response, expen… | 查询物流 |
 | case-010 | 3.0 | 1 | no | none available -- only behavi… | ok | empty_output | 你能帮我查一下我的订单吗 |
-| case-011 | 2.5 | 4 | no | 3 clean answers to the same q… | failure_not_reproduced | user_retried | 修改手机号 |
-| case-012 | 2.5 | 1 | no | none available -- only behavi… | failure_not_reproduced | user_retried | API key 轮换 |
-| case-013 | 2.5 | 1 | no | none available -- only behavi… | failure_not_reproduced | user_retried | 订单还在处理中 |
+| case-011 | 2.5 | 4 | no | a human-written expectation | failure_not_reproduced | user_retried | 修改手机号 |
+| case-012 | 2.5 | 1 | no | a human-written expectation | failure_not_reproduced | user_retried | API key 轮换 |
+| case-013 | 2.5 | 1 | no | a human-written expectation | failure_not_reproduced | user_retried | 订单还在处理中 |
 | case-014 | 2.0 | 1 | yes | the trace's own expect block | ok | explicit_expectation | 返回账户余额 |
 | case-015 | 1.5 | 1 | no | the log's short-answer line (… | ok | output_much_shorter | 你好 |
 | case-016 | 1.5 | 1 | no | the log's short-answer line (… | ok | output_much_shorter | 现在汇率是多少 |
 
-## Cases that need a human eye
+## Cases carrying a human-written expectation
 
-Generated cases are a proposal. These are the ones where the proposal is weakest, in order of how much they should worry you.
+The expectation below does not make these cases reproduce their original failure -- nothing can, the failure was never in the answer. What it does is give them something worth asserting.
 
-- case-011 — the failure here was behavioural (`user_retried`): the call itself produced a perfectly acceptable answer, and what went wrong happened around it. No check on the output text can reproduce that. Keep the case as a pinned input, but it needs a labelled expected answer before it can gate anything.
-- case-012 — the failure here was behavioural (`user_retried`): the call itself produced a perfectly acceptable answer, and what went wrong happened around it. No check on the output text can reproduce that. Keep the case as a pinned input, but it needs a labelled expected answer before it can gate anything.
-- case-013 — the failure here was behavioural (`user_retried`): the call itself produced a perfectly acceptable answer, and what went wrong happened around it. No check on the output text can reproduce that. Keep the case as a pinned input, but it needs a labelled expected answer before it can gate anything.
+- `case-011` (修改手机号) — 示例标注：用户重问了,说明第一版没解决。正确答案要说清要走验证流程,而不是一句「在设置里改」就完事。
+- `case-012` (API key 轮换) — 示例标注：问的是怎么轮换,答案必须真的交代轮换方式。只要提到密钥这个词,就说明没有整段跑偏。
+- `case-013` (订单还在处理中) — 示例标注：用户重问说明第一版没给出可执行的下一步。正确答案必须包含升级路径——也就是找客服。
 
 ## Why the top case was chosen
 

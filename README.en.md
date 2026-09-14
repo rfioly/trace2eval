@@ -58,6 +58,7 @@ Requires Python 3.10+.
 - **One question, one case.** A question asked 200 times becomes a single case that knows it stands for 200 calls.
 - **Shapes are learned from clean answers, never from the one that failed.** A failure seed's minimum length comes from the median of the clean answers to the same question.
 - **Every case grades itself.** The report marks the cases whose checks *cannot* catch the failure they came from, instead of folding them into "covered".
+- **Cases no check can reach can be annotated by hand.** When a failure happened around the call rather than in the answer, the tool says so and writes a fill-in template; a written expectation turns those cases into real gates. Annotations are keyed on the question, so they survive regenerating the case set.
 - **Swappable matcher.** `--similarity module:function` points at your own implementation; the package stays dependency-free.
 - **CI-ready.** `check` exits non-zero on regression.
 
@@ -169,10 +170,35 @@ Malformed lines and lines with no input are skipped and counted. An **empty `out
 
 ---
 
+## Expectations (optional)
+
+Some failures happen *around* the call — the user asked again, left a down-vote, or the request timed out. **The answer itself is usually fine**, which is exactly why no check on the output text can catch the failure. The tool can identify those cases, but it cannot invent what a correct answer should have looked like. A person has to write that down.
+
+`build` writes a fill-in template beside the case set, listing precisely those cases:
+
+```jsonl
+{"input": "修改手机号", "expect": {}, "note": "TODO: fill in expect. (user_retried)"}
+```
+
+Fill in `expect`, save it as `expectations.jsonl`, and rebuild:
+
+```jsonl
+{"input": "修改手机号", "expect": {"min_chars": 20, "contains": ["手机号"]}, "note": "the user asked twice, so v1 did not solve it; a correct answer must explain the verification step"}
+```
+
+The keys available inside `expect` are **the same vocabulary a trace's own `expect` block uses**: `min_chars`, `max_chars`, `contains`, `not_contains`, `regex`, `json`, `not_fallback`.
+
+Two design decisions worth knowing:
+
+- **Keyed on the question, not the case id.** Case ids are assigned in descending score order, so adding one trace to a log can renumber everything. An annotation hanging off `case-011` would silently detach on the next rebuild — and a detached annotation is worse than none, because the case still looks covered.
+- **An annotation does not change the self-check verdict.** It cannot make the case reproduce its original failure, because for a behavioural failure there is nothing in the text to reproduce. It changes the goal instead: from "make this failure impossible" to "the answer must look like this". The report reports both numbers separately rather than merging them.
+
+---
+
 ## Known limits
 
 - **Similarity is character n-grams**, so paraphrases sharing no characters score zero. Use `--similarity` to swap in your own matcher.
-- **Behavioural failures are invisible to this.** Three of the sixteen cases in the sample log failed only because the user asked again; the output itself was fine. No deterministic check on text can catch that. They are listed separately in the report.
+- **Behavioural failures cannot be caught automatically, but they can be annotated.** Three of the sixteen cases in the sample log failed only because the user asked again; the output itself was fine, and no deterministic check on text can catch that. It is a limit of the method, not unpaid debt. Those cases are now backed by the hand-written expectations in `evalset/expectations.jsonl` (the committed one is an example). The report keeps the two numbers apart — "cannot be caught" and "covered by an annotation" — rather than merging them into one flattering figure.
 - **Comparison cost is O(cases × distinct phrasings per cluster)**, not O(log size): a question asked 5,000 times leaves one fingerprint to compare against. `MAX_DISTINCT_FINGERPRINTS = 512` is a guessed safety valve and has not been load-tested.
 - **Cases are still a proposal**, but a self-checking one — `report.md` lists the ones that need a human eye.
 
@@ -182,16 +208,17 @@ Malformed lines and lines with no input are skipped and counted. An **empty `out
 
 ```
 src/trace2eval/
-  schema.py    trace loading, alias handling, tolerant parsing
-  signals.py   what makes a trace worth testing
-  select.py    similarity, clustering, case construction
-  checks.py    deterministic output checks
-  runner.py    scoring and regression comparison
-  report.py    markdown rendering
-  matchers.py  swappable similarity
-tests/         42 tests
-examples/      a 42-row sample log plus a baseline and a regressed run
-evalset/       committed build output
+  schema.py       trace loading, alias handling, tolerant parsing
+  signals.py      what makes a trace worth testing
+  select.py       similarity, clustering, case construction
+  checks.py       deterministic output checks
+  runner.py       scoring and regression comparison
+  report.py       markdown rendering
+  matchers.py     swappable similarity
+  annotations.py  loading and merging hand-written expectations
+tests/            62 tests
+examples/         a 42-row sample log plus a baseline and a regressed run
+evalset/          committed build output plus example expectations
 ```
 
 ## Development

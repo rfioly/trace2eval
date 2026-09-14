@@ -24,3 +24,7 @@ Thumbs.db
 # baseline every future run is compared against.
 runs/*.json
 !runs/baseline.json
+
+# Only written when no expectations.jsonl exists yet, to be filled in and saved
+# under that name. The template itself is scratch; the filled-in file is not.
+*/expectations.template.jsonl

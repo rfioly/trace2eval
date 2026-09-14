@@ -30,6 +30,7 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
+from .annotations import AnnotationSet, fold_input, merge_checks
 from .checks import run_checks
 from .schema import Trace
 from .signals import (
@@ -220,6 +221,25 @@ class SelectionResult:
             if case["self_check"]["verdict"] == "reference_fails_own_checks"
         ]
 
+    @property
+    def cases_with_annotation(self) -> list[dict[str, Any]]:
+        return [case for case in self.cases if case["annotation"]["applied"]]
+
+    @property
+    def cases_needing_annotation(self) -> list[dict[str, Any]]:
+        """The remaining TODO list.
+
+        A weak case that already carries a human expectation is off this list:
+        the expectation does not make the case reproduce its original failure --
+        nothing can, the failure was not in the text -- but it does give the case
+        something worth asserting, which is the actual goal.
+        """
+        return [
+            case
+            for case in self.cases_with_weak_checks
+            if not case["annotation"]["applied"]
+        ]
+
     def stats(self) -> dict[str, Any]:
         return {
             "total_traces": self.total_traces,
@@ -231,6 +251,8 @@ class SelectionResult:
             "dropped_beyond_limit": self.dropped_beyond_limit,
             "cases_with_weak_checks": len(self.cases_with_weak_checks),
             "cases_whose_reference_fails": len(self.cases_whose_reference_fails),
+            "cases_with_annotation": len(self.cases_with_annotation),
+            "cases_needing_annotation": len(self.cases_needing_annotation),
         }
 
 
@@ -569,7 +591,12 @@ def _self_check(checks: list[dict[str, Any]], output: str) -> dict[str, Any]:
     return {"passed": not failed, "failed_checks": failed}
 
 
-def build_case(index: int, cluster: Cluster, context: TraceContext | None = None) -> dict[str, Any]:
+def build_case(
+    index: int,
+    cluster: Cluster,
+    context: TraceContext | None = None,
+    expectations: AnnotationSet | None = None,
+) -> dict[str, Any]:
     trace = cluster.representative
     names = {signal.name for signal in cluster.signals}
     is_failure_seed = bool(names & QUALITY_SIGNALS)
@@ -614,6 +641,23 @@ def build_case(index: int, cluster: Cluster, context: TraceContext | None = None
         else:
             shape_source = "none available -- only behaviour was asserted"
 
+    # A human-written expectation outranks anything inferred. It does not make
+    # the case reproduce its original failure -- for a behavioural failure
+    # nothing on the output text can, by definition -- but it does give the case
+    # a specification worth asserting, which is the actual point.
+    annotation = (
+        expectations.lookup(fold_input(trace.input)) if expectations is not None else None
+    )
+    if annotation is not None:
+        checks = merge_checks(checks, _checks_from_expect(annotation.expect))
+        if not any(check["type"] == "not_fallback" for check in checks):
+            checks.insert(0, {"type": "not_fallback"})
+        shape_source = "a human-written expectation"
+        notes.append(
+            "human expectation applied, overriding anything inferred — "
+            + (annotation.note or "(no note given)")
+        )
+
     duplicates = cluster.duplicate_ids
     if duplicates:
         notes.append(
@@ -647,6 +691,10 @@ def build_case(index: int, cluster: Cluster, context: TraceContext | None = None
         "reference_is_trusted": not is_failure_seed,
         "shape_source": shape_source,
         "failure_kind": failure_kind,
+        "annotation": {
+            "applied": annotation is not None,
+            "note": annotation.note if annotation is not None else "",
+        },
         "source_trace_id": trace.id,
         "score": cluster.score,
         "signals": [signal.to_dict() for signal in cluster.signals],
@@ -665,6 +713,7 @@ def select_cases(
     dedup_threshold: float = DEFAULT_DEDUP_THRESHOLD,
     weights: dict[str, float] | None = None,
     matcher: Matcher | None = None,
+    expectations: AnnotationSet | None = None,
 ) -> SelectionResult:
     trace_list = list(traces)
     result = SelectionResult(total_traces=len(trace_list))
@@ -703,7 +752,7 @@ def select_cases(
 
     result.dropped_as_duplicate = sum(cluster.duplicate_count for cluster in interesting)
     result.cases = [
-        build_case(index, cluster, context)
+        build_case(index, cluster, context, expectations)
         for index, cluster in enumerate(interesting, 1)
     ]
     return result

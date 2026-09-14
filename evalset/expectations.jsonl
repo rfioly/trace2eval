@@ -1,0 +1,16 @@
+// trace2eval expectations -- one JSON object per line, '//' comments allowed.
+//
+// These three cases fail for behavioural reasons: the user asked again, and the
+// answer they got was fine. No check on that text can reproduce the failure,
+// because the failure was never in the text. So the goal changes -- instead of
+// "make this failure impossible", the case asserts "the answer must look like
+// this". A person has to write that down; the tool cannot.
+//
+// These are the sample log's annotations, written as an example of the format.
+// On a real deployment you would write them yourself after reading report.md.
+//
+// Matching is on 'input', folded for case/space/punctuation. Generated case ids
+// are NOT stable across rebuilds, which is why nothing here is keyed on them.
+{"input": "修改手机号", "expect": {"min_chars": 20, "contains": ["手机号"]}, "note": "示例标注：用户重问了,说明第一版没解决。正确答案要说清要走验证流程,而不是一句「在设置里改」就完事。"}
+{"input": "API key 轮换", "expect": {"min_chars": 20, "contains": ["密钥"]}, "note": "示例标注：问的是怎么轮换,答案必须真的交代轮换方式。只要提到密钥这个词,就说明没有整段跑偏。"}
+{"input": "订单还在处理中", "expect": {"min_chars": 20, "contains": ["客服"]}, "note": "示例标注：用户重问说明第一版没给出可执行的下一步。正确答案必须包含升级路径——也就是找客服。"}

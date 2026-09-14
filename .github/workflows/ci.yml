@@ -35,8 +35,15 @@ jobs:
         run: pip install -e .
       - name: Rebuild and diff against the committed case set
         run: |
-          trace2eval build examples/sample_traces.jsonl -o build/evalset
+          # --expectations is passed explicitly and points at the committed file.
+          # The default is "<output dir>/expectations.jsonl", so building into a
+          # fresh directory would find nothing there and quietly produce an
+          # unannotated case set -- which is what this job exists to catch.
+          trace2eval build examples/sample_traces.jsonl \
+            -o build/evalset \
+            --expectations evalset/expectations.jsonl
           diff -u evalset/cases.jsonl build/evalset/cases.jsonl
+          diff -u evalset/report.md build/evalset/report.md
 
   gate:
     name: the gate rejects a known regression

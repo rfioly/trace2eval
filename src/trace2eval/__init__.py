@@ -16,6 +16,13 @@ Everything here is deterministic and offline. No model is called, no API key is
 needed, and the same log always produces the same case set.
 """
 
+from .annotations import (
+    Annotation,
+    AnnotationSet,
+    load_annotations,
+    merge_checks,
+    render_template,
+)
 from .checks import CheckResult, detect_fallback, run_check, run_checks
 from .matchers import char_bigram_jaccard, word_jaccard
 from .runner import RunMetrics, compare_runs, load_outputs, run_cases
@@ -32,10 +39,12 @@ from .select import (
 )
 from .signals import DEFAULT_WEIGHTS, Signal, build_context, compute_signals, score
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 __all__ = [
     "__version__",
+    "Annotation",
+    "AnnotationSet",
     "CheckResult",
     "DEFAULT_DEDUP_THRESHOLD",
     "DEFAULT_WEIGHTS",
@@ -50,11 +59,14 @@ __all__ = [
     "compare_runs",
     "compute_signals",
     "detect_fallback",
+    "load_annotations",
     "load_matcher",
     "load_outputs",
     "load_traces",
+    "merge_checks",
     "overlap_coefficient",
     "parse_trace",
+    "render_template",
     "run_check",
     "run_checks",
     "run_cases",

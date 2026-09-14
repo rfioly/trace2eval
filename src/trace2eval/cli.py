@@ -29,6 +29,7 @@ from .runner import (
     run_cases,
 )
 from .schema import TraceFormatError, load_traces
+from .annotations import load_annotations, render_template
 from .select import (
     DEFAULT_DEDUP_THRESHOLD,
     MatcherSpecError,
@@ -80,6 +81,15 @@ def cmd_build(args: argparse.Namespace) -> int:
                 print(f"  line {line_no}: {reason}", file=sys.stderr)
         return EXIT_BAD_INPUT
 
+    out_dir = Path(args.out)
+
+    expectations_path = (
+        Path(args.expectations) if args.expectations else out_dir / "expectations.jsonl"
+    )
+    expectations = load_annotations(expectations_path)
+    for problem in expectations.skipped:
+        print(f"warning: {expectations_path.name}: {problem}", file=sys.stderr)
+
     matcher = None
     if args.similarity:
         try:
@@ -94,13 +104,20 @@ def cmd_build(args: argparse.Namespace) -> int:
         min_score=args.min_score,
         dedup_threshold=args.dedup_threshold,
         matcher=matcher,
+        expectations=expectations,
     )
 
-    out_dir = Path(args.out)
     _write_jsonl(out_dir / "cases.jsonl", result.cases)
     # as_posix() so the report is byte-identical on Windows and Linux, which is
     # what lets CI diff the committed case set against a fresh build.
     _write_text(out_dir / "report.md", build_report(result, Path(args.traces).as_posix()))
+
+    # Written only when there is no expectations file yet, so a real one is never
+    # clobbered by a rebuild.
+    template_path: Path | None = None
+    if not expectations_path.exists() and result.cases_needing_annotation:
+        template_path = expectations_path.with_name("expectations.template.jsonl")
+        _write_text(template_path, render_template(result.cases_needing_annotation))
 
     stats = result.stats()
     print(f"read {stats['total_traces']} traces from {args.traces}")
@@ -120,10 +137,19 @@ def cmd_build(args: argparse.Namespace) -> int:
             f"  {stats['cases_whose_reference_fails']} trusted reference(s) fail their "
             f"own checks -- look at these before committing the set"
         )
+    if stats["cases_with_annotation"]:
+        print(f"  {stats['cases_with_annotation']} case(s) use a human-written expectation")
     if stats["cases_with_weak_checks"]:
+        covered = stats["cases_with_annotation"]
         print(
             f"  {stats['cases_with_weak_checks']} case(s) carry checks that cannot "
             f"detect the failure they came from"
+            + (f" ({covered} covered by an annotation)" if covered else "")
+        )
+    if stats["cases_needing_annotation"]:
+        print(
+            f"  {stats['cases_needing_annotation']} of those still need a human-written "
+            f"expectation -> fill in {template_path or expectations_path}"
         )
     print(f"report -> {out_dir / 'report.md'}")
     return EXIT_OK
@@ -245,6 +271,16 @@ def build_parser() -> argparse.ArgumentParser:
             "swap in your own matcher, e.g. 'my_embeddings:cosine'. Must take two "
             "strings and return a score in [0, 1]. Disables the n-gram index, so "
             "clustering gets slower -- see trace2eval.matchers."
+        ),
+    )
+    build.add_argument(
+        "--expectations",
+        default=None,
+        metavar="PATH",
+        help=(
+            "human-written expected answers, one JSON object per line. Defaults to "
+            "expectations.jsonl beside the case set. If the file does not exist, a "
+            "fill-in template is written for the cases that need one."
         ),
     )
     build.set_defaults(func=cmd_build)

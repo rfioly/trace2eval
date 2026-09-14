@@ -232,6 +232,82 @@ noticeably slower.
 
 ---
 
+## 7d. What finally happened to those 3 behavioural cases
+
+v0.2 pushed weak cases from 9/16 down to 3/16. All three survivors were
+`user_retried`: the user asked again, and **the answer itself was fine**.
+
+I tried to solve this in code first. Every approach failed on the same fact:
+**the failure is not in the text.** No amount of tuning a text check detects
+"the user will ask again".
+
+So the direction changed to **supplying the part only a person can supply.** The
+tool does three things: recognise these cases, emit a fill-in template, merge the
+result into the checks. The person does one thing: write down what a correct
+answer looks like.
+
+### Why the key is the question, not the case id
+
+This is the only genuinely hard part of the feature; the rest is plumbing.
+
+Case ids (`case-011`) are assigned **positionally**, in descending score order.
+Add one high-scoring trace to a log and every id shifts by one. An annotation
+keyed on an id detaches silently.
+
+And **a detached annotation is worse than no annotation**: the case still looks
+covered while asserting nothing. Nothing errors, nothing turns red; you find out
+the day the gate waves through an obvious regression.
+
+So the key is the **question itself** — `input`, compared after folding case,
+whitespace and punctuation. `test_an_annotation_follows_the_question_when_case_ids_shift`
+exists for exactly this: it adds a high-scoring trace that renumbers everything,
+then asserts the annotation is still attached to the same question.
+
+### An annotation does not change the self-check verdict
+
+I nearly wrote this section as "annotations fix those 3 cases". They do not.
+
+The self-check asks whether the checks fail on the output that went wrong. For a
+behavioural failure that output is *good*, so the answer is necessarily no —
+still no, after annotating. The verdict stays `failure_not_reproduced`.
+
+What changes is the **goal**: from "make this case reproduce the original
+failure" to "the answer must satisfy this specification". The first is
+impossible; the second is achievable, and it is the one that actually catches a
+regression.
+
+The report keeps these numbers **apart**: how many cases cannot catch their own
+failure, how many of those an annotation now covers, how many still need one. I
+deliberately did not merge them into a "coverage" figure. That number would look
+better and would hide the fact that three cases still cannot catch anything.
+
+### A detail I got wrong first
+
+If a human writes `contains` but not `min_chars`, the merge has to **keep the
+inferred length check**.
+
+My first instinct was that a hand-written annotation should replace the inferred
+version wholesale. But then writing one `contains` would silently **remove** the
+truncation check — annotating a case would make it weaker. A feature should not
+do that. The rule is now per-check-type: the human's value wins where they
+overlap, the inferred check survives where they do not.
+
+I only worked this out while writing tests. I had paired a 6-character bad
+reference with `min_chars: 20` and found the checks *did* fire and the verdict
+flipped to `ok` — that counter-example made me realise both verdict branches are
+correct, just for different situations. So I added a second test pinning the
+other branch down.
+
+### The template is deliberately empty
+
+`build` writes `expectations.template.jsonl` when no expectations file exists,
+listing each case that needs one with `"expect": {}`. It does not pre-fill a
+guess. A plausible-looking generated expectation is exactly the over-confidence
+this mechanism exists to avoid, and it would be far easier to accept by accident
+than an empty field.
+
+---
+
 ## 8. No LLM-as-judge
 
 Actively rejected for v0.1, on three grounds:
@@ -265,22 +341,23 @@ code change.
 
 ## What to do next
 
-v0.1 listed three items. The first two are done in v0.2 (shape from clean answers,
-cost no longer growing with repetition). What remains, ranked by how much it would
-improve the tool rather than by how interesting it is:
+v0.1 listed three items; the first two were done in v0.2. The first item v0.2
+listed -- hand-written expectations for the behavioural cases -- was done in v0.3.
 
-1. **Give the three behavioural cases a human-labelled expected answer.** This is the
-   biggest remaining gap and the hardest, because it is not a code problem — it is a
-   workflow problem. The tool needs a way for someone to write down "here is what this
-   question should be answered with", and for that annotation to survive regenerating
-   the case set. I have considered a `--review` command, but I have not worked out
-   where the annotation should live or how it gets matched back up with regenerated
-   cases. I do not know this area well; pointers welcome.
-2. **A labelled dedup evaluation set.** The 0.6 threshold is tuned on 42 rows. A few
-   hundred hand-labelled pairs, scored for precision and recall at each threshold,
-   would turn a reasonable guess into a defensible default. It is also the tool eating
-   its own dog food: the logic it uses to score other people's output is exactly what
-   would score its own threshold.
-3. **Run it on a log of realistic size.** Past 100k rows, two questions: is
-   `MAX_DISTINCT_FINGERPRINTS = 512` enough, and how slow does a custom matcher (index
-   disabled) actually get? Both numbers are still estimates. I have not measured them.
+Ranked by how much they would improve the tool:
+
+1. **The dedup threshold is still a guess.** 0.6 was tuned on 42 rows. A few
+   hundred hand-labelled pairs, scored for precision and recall at each
+   threshold, would turn a reasonable guess into a defensible default. This is
+   still the tool eating its own dog food: the logic it uses to score other
+   people's output is exactly what would score its own threshold.
+2. **Run it on a log of realistic size.** Past 100k rows, two questions: is
+   `MAX_DISTINCT_FINGERPRINTS = 512` enough, and how slow does a custom matcher
+   (index disabled) actually get? Both numbers are still estimates. I have not
+   measured them.
+3. **Let annotations be proposed rather than written from scratch.** Today a
+   person has to compose the whole `expect` block. If the tool drafted one first
+   -- candidate keywords pulled from the clean answers to the same question -- the
+   person would only be confirming or rejecting, which is much faster. I am not
+   confident the drafts would be good enough to help rather than to distract.
+   Unverified idea.

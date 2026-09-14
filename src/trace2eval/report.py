@@ -58,6 +58,13 @@ def build_report(result: SelectionResult, source_name: str) -> str:
         f"| Trusted references failing their own checks "
         f"| {stats['cases_whose_reference_fails']} |"
     )
+    lines.append(
+        f"| Cases using a human-written expectation "
+        f"| {stats['cases_with_annotation']} |"
+    )
+    lines.append(
+        f"| Cases still needing one | {stats['cases_needing_annotation']} |"
+    )
     lines.append("")
 
     lines.append("## Log-wide baselines")
@@ -102,7 +109,7 @@ def build_report(result: SelectionResult, source_name: str) -> str:
         )
     lines.append("")
 
-    flagged = result.cases_whose_reference_fails + result.cases_with_weak_checks
+    flagged = result.cases_whose_reference_fails + result.cases_needing_annotation
     if flagged:
         lines.append("## Cases that need a human eye")
         lines.append("")
@@ -117,15 +124,14 @@ def build_report(result: SelectionResult, source_name: str) -> str:
                 f"checks (`{', '.join(case['self_check']['failed_checks'])}`). Either "
                 f"the reference is wrong or the checks are."
             )
-        for case in result.cases_with_weak_checks:
+        for case in result.cases_needing_annotation:
             if case["failure_kind"] == "behaviour":
                 lines.append(
                     f"- {case['id']} — the failure here was behavioural "
                     f"(`{', '.join(signal['name'] for signal in case['signals'])}`): the "
                     f"call itself produced a perfectly acceptable answer, and what went "
                     f"wrong happened around it. No check on the output text can "
-                    f"reproduce that. Keep the case as a pinned input, but it needs a "
-                    f"labelled expected answer before it can gate anything."
+                    f"reproduce that."
                 )
             else:
                 lines.append(
@@ -134,6 +140,30 @@ def build_report(result: SelectionResult, source_name: str) -> str:
                     f"the generated checks pass on it. That is a gap in the checks, not "
                     f"a limit of the approach -- worth investigating."
                 )
+        lines.append("")
+        lines.append(
+            "The way out for the behavioural ones is an expectation file: one JSON "
+            "object per line, keyed on `input`, holding the checks a correct answer "
+            "should satisfy. `build` writes a fill-in template next to the case set "
+            "listing exactly these cases; save it as `expectations.jsonl` and rebuild. "
+            "It is keyed on the question rather than the case id, so it survives "
+            "regeneration."
+        )
+        lines.append("")
+
+    if result.cases_with_annotation:
+        lines.append("## Cases carrying a human-written expectation")
+        lines.append("")
+        lines.append(
+            "The expectation below does not make these cases reproduce their original "
+            "failure -- nothing can, the failure was never in the answer. What it does "
+            "is give them something worth asserting."
+        )
+        lines.append("")
+        for case in result.cases_with_annotation:
+            lines.append(
+                f"- `{case['id']}` ({case['input']}) — {case['annotation']['note'] or '(no note)'}"
+            )
         lines.append("")
 
     if result.cases:
