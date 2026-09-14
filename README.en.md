@@ -60,6 +60,7 @@ Requires Python 3.10+.
 - **Every case grades itself.** The report marks the cases whose checks *cannot* catch the failure they came from, instead of folding them into "covered".
 - **Cases no check can reach can be annotated by hand.** When a failure happened around the call rather than in the answer, the tool says so and writes a fill-in template; a written expectation turns those cases into real gates. Annotations are keyed on the question, so they survive regenerating the case set.
 - **Swappable matcher.** `--similarity module:function` points at your own implementation; the package stays dependency-free.
+- **The threshold has outside evidence.** 0.60 was measured on 1,062 hand-labelled SQuAD questions: recall 1.000, false-positive rate 0.004, and the best value on the hardest negative class. Method and caveats are in [`benchmarks/`](benchmarks/).
 - **CI-ready.** `check` exits non-zero on regression.
 
 ---
@@ -197,9 +198,11 @@ Two design decisions worth knowing:
 
 ## Known limits
 
-- **Similarity is character n-grams**, so paraphrases sharing no characters score zero. Use `--similarity` to swap in your own matcher.
+- **Similarity is character n-grams**, so paraphrases sharing no characters score zero. Against sentence pairs built specifically to defeat string matching, 98% are called "the same question" — that is the ceiling on this approach. Use `--similarity` to swap in your own matcher.
+- **Single linkage amplifies a small pairwise error.** On 1,062 SQuAD questions containing **no duplicates at all**, the 0.60 threshold produced a pairwise false-positive rate of 0.4% — which single linkage turned into **54% of the pool landing in some cluster**, the largest holding 425 rows. `report.md` prints the equivalent numbers for your own log (largest cluster, share pulled in). There is **no automatic warning**, because a short fragment scoring far from its parent is the signature of both a useful chain and a spurious one. The reasoning is in the `ClusterHealth` docstring.
 - **Behavioural failures cannot be caught automatically, but they can be annotated.** Three of the sixteen cases in the sample log failed only because the user asked again; the output itself was fine, and no deterministic check on text can catch that. It is a limit of the method, not unpaid debt. Those cases are now backed by the hand-written expectations in `evalset/expectations.jsonl` (the committed one is an example). The report keeps the two numbers apart — "cannot be caught" and "covered by an annotation" — rather than merging them into one flattering figure.
 - **Comparison cost is O(cases × distinct phrasings per cluster)**, not O(log size): a question asked 5,000 times leaves one fingerprint to compare against. `MAX_DISTINCT_FINGERPRINTS = 512` is a guessed safety valve and has not been load-tested.
+- **The signal layer is still unvalidated by outside data.** The benchmark above covers clustering and dedup only. Signals — feedback, retries, latency, cost — decide which traces become cases at all, and no public dataset pairs real text with real operational fields: serving traces have the timing but strip the text, conversation logs have the text but no timing. So the half of this tool that decides *what is worth testing* still rests on that 42-row sample log.
 - **Cases are still a proposal**, but a self-checking one — `report.md` lists the ones that need a human eye.
 
 ---
@@ -219,6 +222,7 @@ src/trace2eval/
 tests/            62 tests
 examples/         a 42-row sample log plus a baseline and a regressed run
 evalset/          committed build output plus example expectations
+benchmarks/       the dedup threshold measured against outside labelled data
 ```
 
 ## Development
@@ -227,6 +231,11 @@ evalset/          committed build output plus example expectations
 pip install -e ".[dev]"
 pytest
 ```
+
+After changing anything that affects the committed artefacts, run `python rebuild.py`.
+It rebuilds `evalset/`, the metrics the examples depend on, and `benchmarks/results.md`
+in the required order, then checks for stray BOMs and CRLF. (Skipping this step once
+broke the CI byte-identity assertion, which is why it became a script.)
 
 ## License
 

@@ -138,6 +138,51 @@ _NON_EMPTY_MIN_CHARS = 1
 
 
 @dataclass
+class ClusterHealth:
+    """What the clustering looks like, measured rather than assumed.
+
+    This exists because of a number that came out of real labelled data. On 1,062
+    SQuAD questions with no duplicates in them, the default threshold produced a
+    pairwise false-positive rate of 0.4% -- and single linkage turned that into
+    54% of the pool landing in some cluster, the largest holding 425 questions.
+
+    A tenth of a percent of spurious links is plenty to fuse a big pool, and the
+    tool used to say nothing about it. A case standing for 425 unrelated calls is
+    worse than no case: it asserts one answer for hundreds of different questions,
+    and the report gave no hint.
+
+    So the numbers below get computed and shown. ``chained`` counts clusters
+    holding a phrasing that scores below the threshold against the cluster's own
+    representative.
+
+    Deliberately **not** turned into an automatic warning. The first version was
+    one, and it fired on the sample log's two legitimate clusters straight away:
+    "我想了解退款政策" scores 0.429 against "你们的退款政策是什么？" while being
+    unmistakably the same question. Short fragments are exactly what single
+    linkage is meant to hold together, so a low representative similarity cannot
+    distinguish a useful chain from a spurious one. A warning that fires on the
+    good case is worse than none, so these stay as numbers for a person to read.
+    """
+
+    threshold: float
+    clusters: int
+    multi_member_clusters: int
+    largest: int
+    share_in_clusters: float
+    chained_clusters: int
+    chained_sampled: int
+    worst_representative_similarity: float
+
+    def summary_lines(self) -> list[str]:
+        return [
+            f"threshold {self.threshold:.2f}",
+            f"{self.clusters} clusters, {self.multi_member_clusters} with more than one row",
+            f"largest cluster holds {self.largest} rows",
+            f"{self.share_in_clusters:.0%} of the log sits in a cluster with others",
+        ]
+
+
+@dataclass
 class ScoredTrace:
     trace: Trace
     signals: list[Signal]
@@ -196,6 +241,11 @@ class Cluster:
 class SelectionResult:
     cases: list[dict[str, Any]] = field(default_factory=list)
     context: TraceContext | None = None
+
+    #: How the clustering actually behaved, measured rather than assumed. See
+    #: :class:`ClusterHealth` for the real-data numbers that motivated it.
+    cluster_health: ClusterHealth | None = None
+
     total_traces: int = 0
     distinct_questions: int = 0
     questions_without_signals: int = 0
@@ -463,6 +513,60 @@ def cluster_scored(
                 postings.setdefault(shingle, set()).add(target)
 
     return clusters
+
+
+#: How many distinct phrasings per cluster to compare when measuring spread.
+#: Full pairwise across up to MAX_DISTINCT_FINGERPRINTS phrasings would be
+#: quadratic per cluster, and this is a diagnostic, not a decision.
+HEALTH_SAMPLE = 25
+
+
+def assess_cluster_health(
+    clusters: list[Cluster],
+    threshold: float,
+    total_traces: int,
+) -> ClusterHealth:
+    """Measure how far the produced clusters have drifted from their own question.
+
+    Compares each distinct phrasing in a cluster against that cluster's
+    representative. A cluster whose phrasings all score at or above the threshold
+    is a genuine match. One holding a phrasing well below it was chained together
+    through other questions, and is a candidate for being two questions wearing
+    one case id.
+    """
+    multi = [cluster for cluster in clusters if cluster.size > 1]
+    chained = 0
+    sampled = 0
+    worst = 1.0
+
+    for cluster in multi:
+        representative = cluster.representative.input
+        representative_key = normalise(representative)
+        others = [
+            text
+            for text in cluster.sample_texts[:HEALTH_SAMPLE]
+            if normalise(text) != representative_key
+        ]
+        if not others:
+            continue
+        sampled += 1
+        lowest = min(shingle_overlap(representative, text) for text in others)
+        worst = min(worst, lowest)
+        if lowest < threshold:
+            chained += 1
+
+    return ClusterHealth(
+        threshold=threshold,
+        clusters=len(clusters),
+        multi_member_clusters=len(multi),
+        largest=max((cluster.size for cluster in clusters), default=0),
+        share_in_clusters=(sum(cluster.size for cluster in multi) / total_traces)
+        if total_traces
+        else 0.0,
+        chained_clusters=chained,
+        chained_sampled=sampled,
+        worst_representative_similarity=worst,
+    )
 
 
 def _checks_from_expect(expect: dict[str, Any]) -> list[dict[str, Any]]:
@@ -733,6 +837,10 @@ def select_cases(
         scored, fingerprints, threshold=dedup_threshold, matcher=matcher
     )
     result.distinct_questions = len(clusters)
+    # Measured over every cluster, not just the promoted ones: chaining does not
+    # care which cases made the cut, and a fusing pool is worth knowing about
+    # even when the fused cluster scores too low to be promoted.
+    result.cluster_health = assess_cluster_health(clusters, dedup_threshold, len(trace_list))
 
     interesting: list[Cluster] = []
     for cluster in clusters:

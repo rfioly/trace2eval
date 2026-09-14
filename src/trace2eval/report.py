@@ -67,6 +67,52 @@ def build_report(result: SelectionResult, source_name: str) -> str:
     )
     lines.append("")
 
+    health = result.cluster_health
+    if health is not None and health.multi_member_clusters:
+        lines.append("## How the clustering behaved")
+        lines.append("")
+        lines.append(
+            "Clustering uses single linkage, so a cluster only needs a *path* of "
+            "threshold-clearing links between its members -- not for every pair to "
+            "clear it. That makes a small false-positive rate compound: measured on "
+            "1,062 unrelated SQuAD questions, a 0.4% pairwise false-positive rate was "
+            "enough to pull 54% of the pool into one 425-question cluster. Those "
+            "numbers are in `benchmarks/`."
+        )
+        lines.append("")
+        lines.append("| Statistic | Value |")
+        lines.append("| --- | --- |")
+        lines.append(f"| Threshold | {health.threshold:.2f} |")
+        lines.append(f"| Clusters | {health.clusters} |")
+        lines.append(f"| Multi-member clusters | {health.multi_member_clusters} |")
+        lines.append(f"| Largest cluster | {health.largest} rows |")
+        lines.append(f"| Rows pulled into a cluster | {health.share_in_clusters:.1%} |")
+        lines.append(
+            f"| Clusters holding a phrasing below the threshold "
+            f"| {health.chained_clusters} of {health.chained_sampled} sampled |"
+        )
+        lines.append(
+            f"| Worst representative similarity seen "
+            f"| {health.worst_representative_similarity:.3f} |"
+        )
+        lines.append("")
+        lines.append(
+            "**How to read this.** Single linkage holds a cluster together through a "
+            "*path* of threshold-clearing links, so a cluster can contain a phrasing "
+            "far from its own representative and still be one question -- "
+            "`我想了解退款政策` scores 0.43 against `你们的退款政策是什么？` and is "
+            "plainly the same question. That cuts both ways: the same shape appears "
+            "when unrelated questions get fused. There is no automatic warning here "
+            "for that reason; the numbers are for you to read."
+        )
+        lines.append("")
+        lines.append(
+            "As a reference point, running this tool over 1,062 SQuAD questions with "
+            "**no duplicates among them** at the default 0.60 produced a largest "
+            "cluster of 425 rows holding 54% of the pool. See `benchmarks/`."
+        )
+        lines.append("")
+
     lines.append("## Log-wide baselines")
     lines.append("")
     lines.append("| Statistic | Value |")

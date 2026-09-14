@@ -308,6 +308,86 @@ than an empty field.
 
 ---
 
+## 7e. The dedup threshold finally has outside evidence (v0.4)
+
+Every number in this project used to be measured on a 42-row log the author wrote
+himself, to exercise the features he had just built. That is circular. It is now
+measured against SQuAD questions and their human-verified paraphrases
+(`benchmarks/`), where the labels come from how the data was constructed rather
+than from anyone's judgement.
+
+The result splits in two.
+
+**0.60 holds up.** On 1,062 labelled rows it is the optimal value on the hardest
+negative class: recall 1.000, and a false-positive rate of 0.004 against unrelated
+questions. The default does not need changing.
+
+**But single linkage magnifies that 0.4% into a catastrophe.** Fed 1,062 questions
+containing **no duplicates whatsoever**, the 0.6 threshold produced a 0.4%
+pairwise false-positive rate — and fused **54% of the pool into clusters, the
+largest holding 425 rows**. The arithmetic is simple: 1,062 rows make roughly
+560,000 pairs, and 0.4% of those is more than two thousand spurious links, easily
+enough to chain the whole pool. Raising to 0.8 cuts the damage to 1.8%, but costs
+recall — and recall here is already flattered (below).
+
+**The adversarial set gives a hard ceiling.** Those 56 pairs exist specifically to
+make lexical matching answer wrongly. At 0.6, 98% of them clear the threshold.
+That is the ceiling of the character n-gram approach, not a flaw in the
+implementation.
+
+### A mistake made along the way, and a thorough one
+
+Both files carry qa `id` fields, so the obvious join is on `id`. **They are
+aligned positionally; the ids were regenerated.**
+
+The result was a complete, professional-looking evaluation table reporting a
+recall of 0.006 at the default threshold. **All of it was noise.** Had it gone into
+the README, a fabricated conclusion would have shipped as a measurement.
+
+What exposed it: the similarity distribution of the supposed positives
+(median 0.343) was indistinguishable from that of random pairs (median 0.345).
+The labels were doing nothing.
+
+That check is now baked into `dedup_eval.py`: **if the labelled positives are not
+measurably closer to each other than chance, the script refuses to print a report
+and exits.** Silent misalignment is far more dangerous than a crash.
+
+### A warning that got written and then deleted
+
+On the strength of that finding, `build` gained a clustering-health warning: a
+cluster holding a phrasing far from its representative might be a false merge.
+
+**It fired on the sample log's own legitimate clusters immediately.** The flagged
+cluster contained
+
+```
+你们的退款政策是什么？ / 退款政策是什么 / 请问退款政策 / 我想了解退款政策 (0.429)
+```
+
+— four phrasings of one question, with `我想了解退款政策` scoring 0.429. That is
+precisely the legitimate short-fragment chain the clustering docs cite as the
+reason for using single linkage at all.
+
+In other words: **a short fragment sitting far from its parent is the signature of
+both a useful chain and a spurious one, and no threshold on that number separates
+them.** A warning that fires on the good case is worse than none, so it was
+removed. What remains are the measured facts — largest cluster, share pulled in —
+printed for a human to read, with the reasoning recorded in `ClusterHealth`.
+
+### What this evaluation does not cover
+
+- **The language is English.** The tool targets Chinese logs; this is evidence
+  about the mechanism, not about the target language.
+- **The paraphrases are machine-generated and mostly small edits** (median
+  similarity 0.968). The positive set is far easier than real paraphrase, so
+  recall is optimistic and the apparent optimum sits high. Do not read "0.60 is
+  the best threshold" as a claim about human paraphrase.
+- **The signal layer is untouched.** Feedback, retries, latency and cost decide
+  what is worth testing, and no public dataset pairs real text with real
+  operational fields. That half of the tool still rests on the 42-row sample log.
+
+---
+
 ## 8. No LLM-as-judge
 
 Actively rejected for v0.1, on three grounds:

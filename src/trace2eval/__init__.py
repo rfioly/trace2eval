@@ -39,7 +39,7 @@ from .select import (
 )
 from .signals import DEFAULT_WEIGHTS, Signal, build_context, compute_signals, score
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "__version__",

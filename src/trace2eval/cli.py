@@ -151,6 +151,11 @@ def cmd_build(args: argparse.Namespace) -> int:
             f"  {stats['cases_needing_annotation']} of those still need a human-written "
             f"expectation -> fill in {template_path or expectations_path}"
         )
+    if result.cluster_health is not None and result.cluster_health.multi_member_clusters:
+        # Facts only. Whether a cluster is really one question cannot be decided
+        # from inside the clustering -- see ClusterHealth -- so no verdict here.
+        for line in result.cluster_health.summary_lines():
+            print(f"  clustering: {line}")
     print(f"report -> {out_dir / 'report.md'}")
     return EXIT_OK
 

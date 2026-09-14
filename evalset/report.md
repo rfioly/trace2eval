@@ -18,6 +18,24 @@ Source log: `examples/sample_traces.jsonl`
 | Cases using a human-written expectation | 3 |
 | Cases still needing one | 0 |
 
+## How the clustering behaved
+
+Clustering uses single linkage, so a cluster only needs a *path* of threshold-clearing links between its members -- not for every pair to clear it. That makes a small false-positive rate compound: measured on 1,062 unrelated SQuAD questions, a 0.4% pairwise false-positive rate was enough to pull 54% of the pool into one 425-question cluster. Those numbers are in `benchmarks/`.
+
+| Statistic | Value |
+| --- | --- |
+| Threshold | 0.60 |
+| Clusters | 33 |
+| Multi-member clusters | 3 |
+| Largest cluster | 6 rows |
+| Rows pulled into a cluster | 28.6% |
+| Clusters holding a phrasing below the threshold | 2 of 3 sampled |
+| Worst representative similarity seen | 0.429 |
+
+**How to read this.** Single linkage holds a cluster together through a *path* of threshold-clearing links, so a cluster can contain a phrasing far from its own representative and still be one question -- `我想了解退款政策` scores 0.43 against `你们的退款政策是什么？` and is plainly the same question. That cuts both ways: the same shape appears when unrelated questions get fused. There is no automatic warning here for that reason; the numbers are for you to read.
+
+As a reference point, running this tool over 1,062 SQuAD questions with **no duplicates among them** at the default 0.60 produced a largest cluster of 425 rows holding 54% of the pool. See `benchmarks/`.
+
 ## Log-wide baselines
 
 | Statistic | Value |

@@ -28,3 +28,9 @@ runs/*.json
 # Only written when no expectations.jsonl exists yet, to be filled in and saved
 # under that name. The template itself is scratch; the filled-in file is not.
 */expectations.template.jsonl
+
+# Benchmark data. Fetched with benchmarks/fetch_data.py; carries its own licence
+# and is not this project's to redistribute. Only benchmarks/results.md is
+# committed.
+_data/
+
