@@ -10,7 +10,9 @@ have instead of written by hand.
 Zero dependencies. No API keys. No model calls. Same log in, same cases out.
 
 [![CI](https://github.com/rfioly/trace2eval/actions/workflows/ci.yml/badge.svg)](https://github.com/rfioly/trace2eval/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/trace2eval-cli)](https://pypi.org/project/trace2eval-cli/)
+[![Downloads](https://img.shields.io/pypi/dm/trace2eval-cli)](https://pypi.org/project/trace2eval-cli/)
+[![Python versions](https://img.shields.io/pypi/pyversions/trace2eval-cli)](https://pypi.org/project/trace2eval-cli/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -19,7 +21,7 @@ Zero dependencies. No API keys. No model calls. Same log in, same cases out.
 ## Quick start
 
 ```bash
-pip install -e .
+pip install trace2eval-cli
 
 # 1. Turn a log into a case set
 trace2eval build traces.jsonl -o evalset/
@@ -32,6 +34,10 @@ trace2eval check --baseline runs/baseline.json --current runs/current.json
 ```
 
 Requires Python 3.10+.
+
+> The distribution name carries a `-cli` suffix because the plain name `trace2eval`
+> is held on PyPI by an empty placeholder. **The command is unchanged** — you still
+> run `trace2eval`.
 
 ---
 

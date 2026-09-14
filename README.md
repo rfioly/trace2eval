@@ -9,7 +9,9 @@
 零依赖、不用 API key、不调模型。同样的日志进，同样的用例出。
 
 [![CI](https://github.com/rfioly/trace2eval/actions/workflows/ci.yml/badge.svg)](https://github.com/rfioly/trace2eval/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/trace2eval-cli)](https://pypi.org/project/trace2eval-cli/)
+[![Downloads](https://img.shields.io/pypi/dm/trace2eval-cli)](https://pypi.org/project/trace2eval-cli/)
+[![Python versions](https://img.shields.io/pypi/pyversions/trace2eval-cli)](https://pypi.org/project/trace2eval-cli/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -18,7 +20,7 @@
 ## 快速开始
 
 ```bash
-pip install -e .
+pip install trace2eval-cli
 
 # 1. 把日志变成用例集
 trace2eval build traces.jsonl -o evalset/
@@ -31,6 +33,9 @@ trace2eval check --baseline runs/baseline.json --current runs/current.json
 ```
 
 需要 Python 3.10+。
+
+> 分发名带 `-cli` 后缀，因为 `trace2eval` 这个名字在 PyPI 上被一个空壳占着。
+> **命令没变**——装完还是敲 `trace2eval`。
 
 ---
 
