@@ -68,18 +68,30 @@ same order.
 
 ## Results
 
-See [`results.md`](results.md). The short version:
+See [`results.md`](results.md) for the SQuAD paraphrase evaluation, and
+[`real_traffic.md`](real_traffic.md) for the same question asked of 1,000,000 real
+user conversations. The second one is where the bad news is.
 
-- **0.60 is the right threshold for pairwise decisions.** It is the best F1 on
-  the hardest negative class, with recall 1.000 and a false-positive rate of
-  0.004 against unrelated questions.
+The short version:
+
+- **0.60 is the right threshold for pairwise decisions** on short, comparable-length
+  text, which is what the SQuAD benchmark measures. It is the best F1 on the hardest
+  negative class, with recall 1.000 and a false-positive rate of 0.004 against
+  unrelated questions.
 - **Single linkage turns a small pairwise error into a large one.** On 1,062
-  questions containing no duplicates at all, that 0.4% pairwise rate fuses 54%
-  of the pool into clusters, the largest holding 425 rows. Any cluster that big
-  is not one question.
+  questions containing no duplicates at all, that 0.4% pairwise rate fuses 54% of
+  the pool into clusters, the largest holding 425 rows. Any cluster that big is not
+  one question.
 - **Against an adversary, character n-grams lose.** 98% of the adversarial pairs
   clear the threshold. That is the expected outcome — the set exists to defeat
   lexical matching — but it is the honest ceiling on what this matcher can do.
+- **On real traffic the matcher fails outright, and silently.** The overlap
+  coefficient's false-positive rate climbs monotonically with input length, from
+  22% for inputs under 40 characters to 75% for inputs over 600. On 9,236 real
+  user questions the default threshold produces a single cluster holding 93% of
+  the corpus. Jaccard would fix that and shatter the short-fragment matching the
+  overlap coefficient was chosen for — verified, not assumed. No fix has been
+  applied; see `real_traffic.md`.
 
 ## What this does NOT establish
 
