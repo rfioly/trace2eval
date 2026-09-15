@@ -2,10 +2,11 @@
 
 # trace2eval
 
-**Turn production LLM traces into a regression eval set.**
+**Turn production LLM traces into a regression eval set — a mistake notebook for your AI product.**
 
 It works the way Pytest does, except the cases are mined from traffic you already
-have instead of written by hand.
+have instead of written by hand. The questions it got wrong get pinned, and every
+prompt change has to pass them again or the build fails.
 
 Zero dependencies. No API keys. No model calls. Same log in, same cases out.
 
@@ -53,6 +54,7 @@ Requires Python 3.10+.
 
 ## Highlights
 
+- **The notebook is a file, not part of the model.** What it records goes into git: diffable, reviewable, revertible, and still valid when you change models. A model's memory is a black box; this is not — **it does not touch your model at all**.
 - **Zero dependencies, no API keys.** Standard library only, no model calls, runs entirely offline.
 - **Deterministic.** The same log produces the same case set, byte for byte — asserted in CI.
 - **One question, one case.** A question asked 200 times becomes a single case that knows it stands for 200 calls.
@@ -71,8 +73,15 @@ Requires Python 3.10+.
 $ trace2eval build examples/sample_traces.jsonl -o evalset
 read 42 traces from examples/sample_traces.jsonl
 generated 16 cases -> evalset/cases.jsonl
-  8 collapsed as near-duplicates
-  3 case(s) carry checks that cannot detect the failure they came from
+  1 collapsed as near-duplicates
+  0 below the minimum score
+  0 beyond the case limit
+  3 case(s) use a human-written expectation
+  3 case(s) carry checks that cannot detect the failure they came from (3 covered by an annotation)
+  clustering: threshold 0.60
+  clustering: 39 clusters, 2 with more than one row
+  clustering: largest cluster holds 3 rows
+  clustering: 12% of the log sits in a cluster with others
 report -> evalset/report.md
 ```
 
@@ -82,8 +91,8 @@ report -> evalset/report.md
 | Case     | Score | In log | Shape from                     | Self-check             | Input                    |
 | -------- | ----- | ------ | ------------------------------ | ---------------------- | ------------------------ |
 | case-001 | 8.0   | 1      | the log's short-answer line    | ok                     | 订单一直显示处理中，已经三天了 |
-| case-007 | 4.5   | 6      | 5 clean answers to the same …  | ok                     | 你们的退款政策是什么？       |
-| case-011 | 2.5   | 4      | 3 clean answers to the same …  | failure_not_reproduced | 修改手机号                |
+| case-007 | 4.5   | 2      | the one clean answer to this … | ok                     | 你们的退款政策是什么？       |
+| case-011 | 2.5   | 1      | a human-written expectation    | failure_not_reproduced | 修改手机号                |
 ```
 
 Now the gate. A prompt tweak fixes one thing and breaks five others:
@@ -220,7 +229,7 @@ src/trace2eval/
   report.py       markdown rendering
   matchers.py     swappable similarity
   annotations.py  loading and merging hand-written expectations
-tests/            62 tests
+tests/            65 tests
 examples/         a 42-row sample log plus a baseline and a regressed run
 evalset/          committed build output plus example expectations
 benchmarks/       the dedup threshold measured against outside labelled data

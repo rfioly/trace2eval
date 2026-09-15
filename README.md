@@ -2,9 +2,10 @@
 
 # trace2eval
 
-**把生产环境的 LLM 调用日志，变成一套回归测试集。**
+**把生产环境的 LLM 调用日志，变成一套回归测试集——属于 AI 的错题本。**
 
 它是 Pytest 那个路子，区别在于用例不用手写——从你已经发生的线上调用里挖出来。
+线上答错的题会被钉下来，以后每次改完 prompt 都重考一遍，分数退了就报警。
 
 零依赖、不用 API key、不调模型。同样的日志进，同样的用例出。
 
@@ -51,6 +52,7 @@ trace2eval check --baseline runs/baseline.json --current runs/current.json
 
 ## 特性
 
+- **错题本是一个文件，不是模型的一部分。** 记下来的东西进 git：能 diff、能 review、能回滚、能进 PR，换模型也照样跑。模型的记忆是黑箱，这份不是——**它一个字都不改你的模型**。
 - **零依赖，不用 API key。** 纯标准库，不调任何模型，完全离线可跑。
 - **确定性。** 同一份日志产出同一套用例，逐字节一致——这条在 CI 里有断言。
 - **一个问题一个用例。** 被问了 200 次的问题只变成一个用例，并且老实记录它代表 200 次调用。
@@ -69,8 +71,15 @@ trace2eval check --baseline runs/baseline.json --current runs/current.json
 $ trace2eval build examples/sample_traces.jsonl -o evalset
 read 42 traces from examples/sample_traces.jsonl
 generated 16 cases -> evalset/cases.jsonl
-  8 collapsed as near-duplicates
-  3 case(s) carry checks that cannot detect the failure they came from
+  1 collapsed as near-duplicates
+  0 below the minimum score
+  0 beyond the case limit
+  3 case(s) use a human-written expectation
+  3 case(s) carry checks that cannot detect the failure they came from (3 covered by an annotation)
+  clustering: threshold 0.60
+  clustering: 39 clusters, 2 with more than one row
+  clustering: largest cluster holds 3 rows
+  clustering: 12% of the log sits in a cluster with others
 report -> evalset/report.md
 ```
 
@@ -80,8 +89,8 @@ report -> evalset/report.md
 | Case     | Score | In log | Shape from                     | Self-check             | Input                    |
 | -------- | ----- | ------ | ------------------------------ | ---------------------- | ------------------------ |
 | case-001 | 8.0   | 1      | 日志的短答线（弱参考）           | ok                     | 订单一直显示处理中，已经三天了 |
-| case-007 | 4.5   | 6      | 同一问题的 5 个干净答案          | ok                     | 你们的退款政策是什么？       |
-| case-011 | 2.5   | 4      | 同一问题的 3 个干净答案          | failure_not_reproduced | 修改手机号                |
+| case-007 | 4.5   | 2      | 同一问题的 1 个干净答案          | ok                     | 你们的退款政策是什么？       |
+| case-011 | 2.5   | 1      | 人工标注                       | failure_not_reproduced | 修改手机号                |
 ```
 
 再看门禁。改一次提示词，修好一处、弄坏五处：
@@ -218,7 +227,7 @@ src/trace2eval/
   report.py       markdown 渲染
   matchers.py     可替换的相似度实现
   annotations.py  人工标注的加载与合并
-tests/            62 个测试
+tests/            65 个测试
 examples/         一份 42 行样本日志 + 一次基线 / 一次回归运行
 evalset/          提交进仓库的构建产物 + 示例标注
 benchmarks/       用外部标注数据测去重阈值（含获取脚本与实测结果）
