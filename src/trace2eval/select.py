@@ -102,7 +102,8 @@ MIN_SHARED_SHINGLES = 2
 
 #: Default similarity threshold.
 #:
-#: Chosen by sweeping the sample log and checking each merged group by hand:
+#: Originally chosen by sweeping the sample log and checking each merged group by
+#: hand, under the overlap coefficient:
 #:
 #:   threshold   merged groups   collapsed   verdict
 #:   0.50        6               14          merges "支持哪些登录方式" with
@@ -111,9 +112,18 @@ MIN_SHARED_SHINGLES = 2
 #:   0.60        3                9          no false pairs on the sample log
 #:   0.70        2                5          starts missing real duplicates
 #:
-#: 0.6 is where precision comes out clean without losing the groups that matter.
-#: It is tuned to one 42-row sample, so treat it as a starting point, not a
-#: constant of nature -- which is why ``--dedup-threshold`` exists.
+#: That table is stale in the sense that the measure underneath it changed in
+#: v0.5, but the value survived the change. Swept again against labelled
+#: paraphrase data with Jaccard, F1 on the hardest negative class is flat from
+#: 0.50 to 0.65 and best at 0.60:
+#:
+#:   threshold   0.50    0.55    0.60    0.65    0.70
+#:   F1          0.976   0.976   0.976   0.973   0.957
+#:
+#: So it is not a knife-edge value. It is also nowhere near a natural constant --
+#: it is "what worked on the data available", which is why ``--dedup-threshold``
+#: exists and why `report.md` prints the cluster-size distribution rather than
+#: asserting the clustering was correct.
 DEFAULT_DEDUP_THRESHOLD = 0.6
 
 #: Safety valve on clustering cost. A cluster compares an incoming trace against
@@ -323,34 +333,38 @@ def shingles(text: str, size: int = SHINGLE_SIZE) -> set[str]:
 def overlap_coefficient(
     left: set[str], right: set[str], min_shared: int = MIN_SHARED_SHINGLES
 ) -> float:
-    """Overlap coefficient -- not Jaccard.
+    """Overlap coefficient. No longer the default -- see :func:`default_similarity`.
 
-    This choice matters more than the threshold does, and it was made by
-    measuring rather than by habit. Measured on the sample log:
+    This was the default through v0.4, chosen on the sample log by a table like
+    this one:
 
         pair                                             overlap   jaccard   same?
         "你们的退款政策是什么？" vs "退款政策"              1.000     0.333     yes
-        "你们的退款政策是什么？" vs "退款政策是怎样的"        0.571     0.333     yes
         "修改手机号" vs "我要改手机号"                      0.750     0.500     yes
         "支持哪些登录方式" vs "支持哪些支付方式"             0.571     0.400     NO
-        "登录不上" vs "支持哪些登录方式"                    0.000     0.111     no
 
-    Read the third and fourth rows together. Jaccard ranks two genuinely
-    *different* questions (0.400) above two phrasings of the *same* question
-    (0.333). It cannot separate them, because it divides by the union and so
-    punishes any length difference -- and short user queries are almost always a
-    fragment of a longer phrasing.
+    The argument was that Jaccard punishes length differences, so it cannot see
+    that a short query is a fragment of a longer phrasing of the same question --
+    true, and still true. What was wrong was the conclusion drawn from it, for two
+    reasons.
 
-    Overlap divides by the *shorter* set, which asks the question we actually
-    care about: does the shorter query sit inside the longer one? It gets all
-    four rows right. The cost is higher false-positive pressure on very short
-    inputs, which ``min_shared`` guards against and which the threshold sweep in
-    ``DEFAULT_DEDUP_THRESHOLD`` was tuned against.
+    First, the table is about *ranking*, and a threshold is always applied. At
+    0.60 both measures reject the "支持哪些支付方式" pair; they differ only in
+    whether they accept the fragment pairs. So the real cost of Jaccard is
+    recall, not confusion, and recall turned out to be the cheaper thing to give
+    up -- a missed merge is one redundant case, a false merge is a case silently
+    standing for two unrelated questions.
 
-    What this still cannot do is recognise a paraphrase that shares no
-    characters with the original. That is a scope boundary, not a bug -- see
-    ``trace2eval.matchers`` and ``--similarity`` for how to swap in something
-    semantic if recall matters more than staying dependency-free.
+    Second, and decisively, the table was measured on 42 rows the author wrote
+    himself to exercise the fragment chains. On 40,000 random pairs of real user
+    questions the overlap coefficient's false-positive rate is 0.34 overall,
+    climbing with input length to 0.75, against Jaccard's 0.0023. On a 9,236
+    question corpus it fused 93% of everything into one cluster. The sample log
+    could not have shown that, because it contained no long inputs.
+
+    Kept because it is genuinely the right answer to a narrower question -- *is
+    the shorter text contained in the longer one?* -- and because the comparisons
+    in ``benchmarks/`` are written against it.
     """
     if not left or not right:
         return 0.0
@@ -361,26 +375,95 @@ def overlap_coefficient(
 
 
 def shingle_overlap(left: str, right: str) -> float:
-    """The default matcher: overlap coefficient over character n-grams."""
+    """Overlap coefficient over character n-grams.
+
+    No longer the default -- see :func:`default_similarity` for why, and for the
+    measurements that changed it. Kept because it is still the right measure for
+    one question (is the shorter text contained in the longer one?) and because
+    the benchmark comparisons in ``benchmarks/`` are written against it.
+    """
     return overlap_coefficient(shingles(left), shingles(right))
 
 
 def similarity(left: set[str], right: set[str], min_shared: int = MIN_SHARED_SHINGLES) -> float:
     """Alias kept for readability at call sites that already hold shingle sets."""
-    return overlap_coefficient(left, right, min_shared)
+    return default_similarity(left, right, min_shared)
 
 
 def jaccard(left: set[str], right: set[str]) -> float:
-    """Plain Jaccard similarity.
+    """Plain Jaccard similarity: shared shingles over the union.
 
-    Kept only as a reference point: it is the measure people reach for by default,
-    and the tests use it to demonstrate *why* we do not. Nothing in the selection
-    path calls this.
+    Divides by the union, so it is precise and it weakly punishes length
+    differences. That is the measure :func:`default_similarity` is built on; see
+    there for why, and for what it costs.
     """
     if not left or not right:
         return 0.0
     union = left | right
     return len(left & right) / len(union) if union else 0.0
+
+
+def default_similarity(
+    left: set[str], right: set[str], min_shared: int = MIN_SHARED_SHINGLES
+) -> float:
+    """The default measure: Jaccard over character n-grams, with a tiny-input floor.
+
+    This was the overlap coefficient until v0.5. The change came from measuring
+    against real user traffic rather than from preference, and the numbers are
+    lopsided enough that the old choice is hard to defend:
+
+    Real questions from LMSYS-Chat-1M, 40,000 random pairs, false-positive rate at
+    the 0.60 threshold, bucketed by the length of the shorter side:
+
+        chars      pairs    overlap   jaccard
+        0-40      16,346     0.2164    0.0000
+        40-100    13,859     0.3502    0.0010
+        100-250    6,460     0.4483    0.0002
+        250-600    2,422     0.6916    0.0310
+        600+         913     0.7459    0.0033
+        overall   40,000     0.3411    0.0023
+
+    Overlap divides by ``min(|A|, |B|)``, and long texts are mostly common
+    bigrams, so its error rate climbs with length. At 0.34 overall it fused 93% of
+    a 9,236-question corpus into a single cluster, which ``build`` reported as a
+    successful run. Jaccard is 148x more precise overall and better in every
+    bucket.
+
+    Against labelled paraphrase data Jaccard also wins on F1, so this is not a
+    precision-for-recall trade:
+
+        threshold   jaccard F1   overlap F1
+        0.50          0.976        0.885
+        0.55          0.976        0.948
+        0.60          0.976        0.965
+        0.70          0.957        0.973
+
+    The cost is real but small and it lands in the harmless direction. Overlap was
+    chosen so that a short fragment could match a longer phrasing of the same
+    question -- "退款政策" against "你们的退款政策是什么？" scores 1.000 under
+    overlap and 0.333 under Jaccard. On the sample log that is worth 6 extra cases
+    out of 42. But the two mistakes are not equally bad: a missed merge produces one
+    redundant case, while a false merge produces a case that silently stands for two
+    unrelated questions. The measure that errs toward the first is the right
+    default.
+
+    An earlier attempt at a length-aware hybrid -- containment below a fragment
+    ratio, Jaccard above it -- was measured and dropped. The ratio is unstable at
+    small sizes (4 shingles against 19 is 0.21), so short pairs kept falling into
+    the containment branch and the overall false-positive rate only came down from
+    0.34 to 0.19. Not good enough to justify two branches. See
+    ``benchmarks/real_traffic.md``.
+    """
+    if not left or not right:
+        return 0.0
+    if len(left & right) < min_shared:
+        return 0.0
+    return jaccard(left, right)
+
+
+def shingle_similarity(left: str, right: str) -> float:
+    """The default matcher over raw text: Jaccard on character n-grams."""
+    return default_similarity(shingles(left), shingles(right))
 
 
 def load_matcher(spec: str) -> Matcher:
@@ -435,7 +518,7 @@ def _cluster_matches(
 ) -> bool:
     if matcher is None:
         return any(
-            overlap_coefficient(fingerprint, known) >= threshold
+            default_similarity(fingerprint, known) >= threshold
             for known in cluster.fingerprints
         )
     return any(matcher(text, known) >= threshold for known in cluster.sample_texts)

@@ -78,23 +78,38 @@ Jaccard shatters the exact case the current design exists to serve. The two
 measures cannot both be satisfied here, so there is **no free fix**, and swapping
 one for the other would trade a loud failure for a quiet one.
 
-## Options, none verified
+## Resolution: v0.5 switched the measure to Jaccard
 
-1. **A length-aware threshold.** The false-positive rate climbs monotonically with
-   length, so the threshold should too. Directly supported by the data above;
-   it also means the single `--dedup-threshold` value stops having one meaning.
-2. **Treat the asymmetric case as containment.** When one side is much shorter,
-   require near-total containment (a high bar) instead of 0.60; when the lengths
-   are comparable, use Jaccard. This is the one I would try first, because it
-   separates the two situations the overlap coefficient currently conflates —
-   but it is untested and the cut-off is a free parameter.
-3. **Do nothing, but stop being silent.** Today a log full of long inputs produces
-   one 93% cluster and says nothing. Whatever the threshold should be, this
-   failure should not be invisible.
+This was first published as a documented defect with no fix, on the grounds that
+the obvious alternative destroyed something the design needed. That reasoning was
+right about the alternative and wrong about the conclusion.
 
-No code was changed for this finding. The matcher is the root of everything else
-the tool claims, and swapping it for an unverified alternative would be the worst
-possible trade.
+**Jaccard is not the alternative that was feared.** Measured against labelled
+paraphrase data, Jaccard beats the overlap coefficient on F1 as well:
+
+| threshold | Jaccard F1 | overlap F1 |
+| --- | --- | --- |
+| 0.50 | 0.976 | 0.885 |
+| 0.55 | 0.976 | 0.948 |
+| 0.60 | **0.976** | 0.965 |
+| 0.70 | 0.957 | 0.973 |
+
+So the change is not precision bought with recall — it is better on both, with the
+single exception of fragment matching.
+
+The cost, stated plainly: on the sample log the measure keeps 4 of the 11 pairs
+inside its legitimate clusters rather than 9, and the log goes from 33 clusters to
+39. Six extra cases, out of 42 rows. The trade was accepted because **the two
+mistakes are not equivalent** — a missed merge costs one redundant case, while a
+false merge produces a case that silently stands for two unrelated questions.
+
+### Approaches that were measured and rejected
+
+| approach | outcome |
+| --- | --- |
+| Jaccard with a length-dependent hybrid (containment below a fragment ratio) | overall false-positive rate only falls from 0.34 to **0.19**; the sample log's legitimate clusters drop from 13/17 to **1/17**. The ratio is unstable at small sizes — 4 shingles against 19 is 0.21 — so short pairs kept landing in the containment branch. Dropped. |
+| Raising the shingle size to 5, as the near-duplicate literature uses | labelled-set F1 falls monotonically: 0.976 at size 2, 0.905 at size 5, 0.867 at size 6. The sample log stops merging entirely at size 4. The literature's 5 is for *documents*; these are short questions. **Do not change this to match the convention.** |
+| Raising the threshold | the sweep in `results.md` shows 0.60 is already the F1 optimum for Jaccard on labelled data, and it is flat from 0.50 to 0.65. |
 
 ## Reproducing
 

@@ -10,9 +10,11 @@ places where the evidence is thin.
 
 ---
 
-## 1. The similarity measure is the overlap coefficient, not Jaccard
+## 1. The similarity measure is Jaccard
 
-**The conventional choice is Jaccard. On this data it ranks the pairs backwards.**
+**This section used to be called "the similarity measure is the overlap coefficient, not Jaccard". The conclusion was backwards. The reasoning is kept because how it went wrong is more useful than the answer.**
+
+### The original argument
 
 Both pairs below are real rows from `examples/sample_traces.jsonl`, labelled by hand.
 
@@ -24,22 +26,75 @@ Both pairs below are real rows from `examples/sample_traces.jsonl`, labelled by 
 | `支持哪些登录方式` vs `支持哪些支付方式` | 0.571 | 0.400 | **no** |
 | `登录不上` vs `支持哪些登录方式` | 0.000 | 0.111 | no |
 
-Jaccard assigns the *different* pair (0.400) a higher score than either *same*
-pair (0.333). No threshold on Jaccard can separate them — the ordering itself is
-wrong. The cause is that Jaccard divides by the union, so it punishes every length
-difference, and short user queries are almost always a fragment of a longer
-phrasing. Overlap divides by the shorter set, which asks the question we actually
-care about: does the shorter query sit inside the longer one?
+Jaccard assigns the *different* pair (0.400) a higher score than either *same* pair
+(0.333). Wrong ordering, so the measure was swapped.
 
-**Honest caveat.** Overlap gets the ordering right but does *not* cleanly separate
-the last two rows — the true pair and the false pair both score exactly 0.571.
-Surface similarity alone cannot tell them apart. That is not a threshold-tuning
-problem; it is a limit of character n-grams on short Chinese text. The threshold
-handles it by favouring precision, and single-linkage clustering (below) recovers
-the recall that precision costs.
+### Where that went wrong
 
-Pinned by `tests/test_dedup.py::test_jaccard_ranks_the_false_pair_higher`, which
-fails with an explanation if anyone swaps the measure back.
+**First, it is an argument about ranking, and a threshold is always applied.** At
+0.60 both measures reject the different pair. They disagree only on rows two and
+three — the fragment pairs. So Jaccard's cost is *recall*, not confusion. The
+recall loss was described as a failure to separate, which it is not.
+
+**Second, and decisively: that table was measured on 42 rows the author wrote
+himself**, deliberately built to exercise fragment chains. It contains no long
+inputs, so it could not measure what the overlap coefficient does on them. On real
+questions from LMSYS-Chat-1M, 40,000 random pairs:
+
+| | overlap @0.60 | Jaccard @0.60 |
+| --- | --- | --- |
+| false-positive rate | **0.3411** | **0.0023** |
+
+**148x.** The rate climbs monotonically with length (0.216 under 40 characters,
+0.746 above 600) because overlap divides by `min(|A|, |B|)` and long texts are
+piles of common bigrams. On 9,236 real questions the 0.60 threshold fused **93% of
+the corpus into one cluster**, and `build` reported that as a successful run.
+
+Jaccard also wins on labelled paraphrase data (F1 on the hardest negative class:
+0.976 for Jaccard at 0.60, 0.965 for overlap). So this was never
+precision-for-recall — it is better on both, except for fragment recall.
+
+### The cost, and why it is acceptable
+
+`退款政策` against `你们的退款政策是什么？`: overlap 1.000 (merge), Jaccard 0.333
+(split). On the sample log that turns the refund question from one case into two,
+and the log from 33 clusters into 39.
+
+**The two mistakes are not equivalent.** A missed merge costs one redundant case. A
+false merge produces a case that silently stands for two unrelated questions. The
+first is the error to prefer.
+
+Pinned by `test_the_default_measure_trades_fragment_recall_for_precision` and
+`test_fragment_pairs_no_longer_match_and_that_is_the_known_cost`. If fragments start
+matching again those tests fail and tell you to re-measure `benchmarks/real_traffic.md`
+first.
+
+### What the field does
+
+Near-duplicate detection in the wild is **Jaccard over MinHash/LSH** (Broder 1997;
+FineWeb, Dolma and RedPajama all follow it), with a threshold around 0.8 to 0.85. So
+this change moves toward the standard rather than away from it.
+
+But the same sources say to use 5-grams, and **that does not transfer**. Measured:
+
+| shingle size | 2 | 3 | 4 | 5 | 6 |
+| --- | --- | --- | --- | --- | --- |
+| labelled-set F1 | **0.976** | 0.961 | 0.932 | 0.905 | 0.867 |
+| sample-log clusters | 39 | 40 | 42 | 42 | 42 |
+
+The 5 is for *documents* — web pages and corpora. This tool handles short questions
+(median 14 to 122 characters), where a 5-gram is specific enough that paraphrases
+share almost none of them, and the sample log stops merging entirely. **Character
+bigrams stay. Do not "fix" this to match the convention.**
+
+### An approach that was tried and dropped
+
+The plan was a length-aware hybrid: containment when one side is much shorter,
+Jaccard when the lengths are close. It sounds right and measured badly — the ratio
+is unstable at small sizes (4 shingles against 19 is 0.21), so short pairs kept
+falling into the containment branch, and the overall false-positive rate only came
+down from 0.34 to **0.19** while the sample log's legitimate clusters fell from 13/17
+to 1/17. Two branches for that is not a trade worth making.
 
 ---
 

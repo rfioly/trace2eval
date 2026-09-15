@@ -85,13 +85,19 @@ The short version:
 - **Against an adversary, character n-grams lose.** 98% of the adversarial pairs
   clear the threshold. That is the expected outcome — the set exists to defeat
   lexical matching — but it is the honest ceiling on what this matcher can do.
-- **On real traffic the matcher fails outright, and silently.** The overlap
-  coefficient's false-positive rate climbs monotonically with input length, from
-  22% for inputs under 40 characters to 75% for inputs over 600. On 9,236 real
-  user questions the default threshold produces a single cluster holding 93% of
-  the corpus. Jaccard would fix that and shatter the short-fragment matching the
-  overlap coefficient was chosen for — verified, not assumed. No fix has been
-  applied; see `real_traffic.md`.
+- **On real traffic the old measure failed outright and silently, and v0.5 replaced
+  it.** The overlap coefficient's false-positive rate climbs monotonically with
+  input length, from 22% for inputs under 40 characters to 75% for inputs over 600.
+  On 9,236 real user questions it produced a single cluster holding 93% of the
+  corpus. v0.5 switched to Jaccard, which drops the overall rate from 0.3411 to
+  0.0023 — and beats the old measure on labelled F1 as well, so it is not precision
+  bought with recall. The cost is fragment matching, and the derivation is in
+  `real_traffic.md`.
+- **The shingle size stays at 2, against the convention.** The near-duplicate
+  literature uses 5-grams, and measurements say that does not transfer here:
+  labelled F1 falls from 0.976 at size 2 to 0.905 at size 5, and the sample log
+  stops merging entirely at size 4. Those 5-grams are for documents; these are
+  short questions.
 
 ## What this does NOT establish
 

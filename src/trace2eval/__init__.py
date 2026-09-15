@@ -39,7 +39,7 @@ from .select import (
 )
 from .signals import DEFAULT_WEIGHTS, Signal, build_context, compute_signals, score
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 
 __all__ = [
     "__version__",
@@ -58,6 +58,7 @@ __all__ = [
     "char_bigram_jaccard",
     "compare_runs",
     "compute_signals",
+    "default_similarity",
     "detect_fallback",
     "load_annotations",
     "load_matcher",
@@ -73,5 +74,6 @@ __all__ = [
     "score",
     "select_cases",
     "shingle_overlap",
+    "shingle_similarity",
     "word_jaccard",
 ]
