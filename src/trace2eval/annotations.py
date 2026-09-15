@@ -128,7 +128,12 @@ def load_annotations(path: Path) -> AnnotationSet:
     if not path.exists():
         return result
 
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    # split("\n"), not str.splitlines(). splitlines() breaks on every Unicode
+    # line boundary, including U+2028 and U+2029 -- and json.dumps with
+    # ensure_ascii=False writes those through unescaped. A note containing one
+    # would split a record mid-string and lose the annotation. Found on real
+    # chat data, where user text carries them.
+    for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue

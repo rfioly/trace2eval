@@ -31,11 +31,34 @@ SAMPLE_EXPECTATIONS = Path(__file__).resolve().parents[1] / "evalset" / "expecta
 
 
 def read_lines(path: Path) -> list[dict]:
+    # split("\n") rather than splitlines(): see the note in annotations.py.
     return [
         json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
+        for line in path.read_text(encoding="utf-8").split("\n")
         if line.strip()
     ]
+
+
+def test_a_note_containing_a_unicode_line_separator_still_parses(tmp_path):
+    """U+2028 is a line boundary to str.splitlines() but not to json.dumps.
+
+    Reading the file with splitlines() would cut this record in half and silently
+    drop the annotation -- the case would look unannotated for no visible reason.
+    """
+    path = tmp_path / "expectations.jsonl"
+    path.write_text(
+        json.dumps(
+            {"input": "修改手机号", "expect": {"min_chars": 20}, "note": "a\u2028b\u2029c"},
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    loaded = load_annotations(path)
+
+    assert not loaded.skipped, f"should parse cleanly, got {loaded.skipped}"
+    assert len(loaded.filled) == 1
+    assert loaded.filled[0].expect == {"min_chars": 20}
 
 
 # --------------------------------------------------------------------------- #

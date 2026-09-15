@@ -275,7 +275,9 @@ def test_baseline_and_regressed_examples_are_consistent_with_the_case_set():
     case_ids = {case["id"] for case in cases}
 
     for path in (BASELINE_OUTPUTS, REGRESSED_OUTPUTS):
-        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        # split("\n") not splitlines(): U+2028 is a line boundary to the latter
+        # but not to json.dumps. See the note in annotations.py.
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line.strip()]
         assert {row["id"] for row in rows} == case_ids, f"{path.name} is out of sync"
 
 
