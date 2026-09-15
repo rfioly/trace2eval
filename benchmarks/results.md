@@ -26,6 +26,10 @@ positives 1062  easy negatives 4000  same-passage negatives 0  adversarial negat
 
 ## Pairwise similarity vs threshold
 
+Measure: the **overlap coefficient**, kept as the pre-v0.5 baseline so the
+comparison stays visible. The clustering section below uses the measure that
+actually ships. The two are not the same, and the difference is the point.
+
 | threshold | recall | FP easy | FP same-passage | FP adversarial | F1 (worst) |
 | --- | --- | --- | --- | --- | --- |
 | 0.30 | 1.000 | 0.688 | 0.000 | 1.000 | 0.436 |
@@ -48,38 +52,42 @@ At the default: recall 1.000, false-positive rate on adversarial pairs 0.982
 
 ## Clustering questions that are mostly distinct
 
+Measure: **default_similarity** -- Jaccard since v0.5. The diameters reported
+below use the same measure the clusterer did, so they can be compared against
+the threshold directly.
+
 pool: 1062 questions, 1062 distinct after folding. There are only 0 pairs that *should* merge, so almost every merge below is damage.
 
 | threshold | clusters | singletons | largest | purity | unrelated pulled in | median diameter |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0.40 | 964 | 891 | 5 | 0.908 | 0.092 | 0.645 |
-| 0.50 | 1041 | 1023 | 3 | 0.980 | 0.020 | 0.781 |
-| 0.60 **<- default** | 1055 | 1048 | 2 | 0.993 | 0.007 | 0.865 |
-| 0.70 | 1058 | 1054 | 2 | 0.996 | 0.004 | 0.926 |
-| 0.80 | 1060 | 1058 | 2 | 0.998 | 0.002 | 0.978 |
-| 0.90 | 1060 | 1058 | 2 | 0.998 | 0.002 | 0.978 |
+| 0.40 | 964 | 891 | 5 | 0.908 | 0.092 | 0.415 |
+| 0.50 | 1041 | 1023 | 3 | 0.980 | 0.020 | 0.568 |
+| 0.60 **<- default** | 1055 | 1048 | 2 | 0.993 | 0.007 | 0.762 |
+| 0.70 | 1058 | 1054 | 2 | 0.996 | 0.004 | 0.854 |
+| 0.80 | 1060 | 1058 | 2 | 0.998 | 0.002 | 0.925 |
+| 0.90 | 1060 | 1058 | 2 | 0.998 | 0.002 | 0.925 |
 
 ### Worst merges at the default threshold 0.60
 
 Two questions in one cluster whose own similarity is far below the threshold
 -- i.e. they were chained together through other questions:
 
-- cluster of 2, most distant pair scores 1.0 (different questions)
+- cluster of 2, most distant pair scores 0.933 (different questions)
   - by the opening of the 2008 general conference, what was the total umc membership?
   - by the opening of the 2008 general conference, what was the total umc membership in the u.s.?
-- cluster of 2, most distant pair scores 0.769 (different questions)
+- cluster of 2, most distant pair scores 0.6 (different questions)
   - in which year did the gallery devoted to chinese art open?
   - what is the name of the gallery devoted to chinese art?
-- cluster of 2, most distant pair scores 0.782 (different questions)
+- cluster of 2, most distant pair scores 0.618 (different questions)
   - what field of computer science analyzes the resource requirements of a specific algorithm isolated unto itself within a given problem?
   - what field of computer science analyzes all possible algorithms in aggregate to determine the resource requirements needed to solve to a given problem?  
-- cluster of 2, most distant pair scores 0.895 (different questions)
+- cluster of 2, most distant pair scores 0.791 (different questions)
   - what does ctenophora rely on for digestion and respiration?
   - what does ctenophora use for digestion and respiration?
-- cluster of 2, most distant pair scores 0.957 (different questions)
+- cluster of 2, most distant pair scores 0.917 (different questions)
   - why did the methodist protestant church split from the methodist episcopal church?
   - when did the methodist protestant church split from the methodist episcopal church?
-- cluster of 2, most distant pair scores 0.812 (different questions)
+- cluster of 2, most distant pair scores 0.658 (different questions)
   - who found that a culture had developed where few commissioners had any sense of responsibility?
   - who found that there was a developed culture of commissioner's who lacked responsibility?
 

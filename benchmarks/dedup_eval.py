@@ -57,6 +57,7 @@ from trace2eval.select import (  # noqa: E402
     DEFAULT_DEDUP_THRESHOLD,
     ScoredTrace,
     cluster_scored,
+    default_similarity,
     normalise,
     shingle_overlap,
     shingles,
@@ -220,17 +221,19 @@ def evaluate_clustering(texts, threshold, diameter_sample, seed):
     rng = random.Random(seed)
     diameters = []
     worst_examples = []
+    # Measured with `default_similarity`, the same measure the clusterer used.
+    # Using the overlap coefficient here produced clusters whose displayed
+    # "most distant pair" scored 0.957 inside a 0.60-threshold cluster, which
+    # reads as a bug rather than as a diagnostic.
     for cluster in (rng.sample(multi, min(diameter_sample, len(multi))) if multi else []):
         members = [int(m[1:]) for m in cluster.member_ids]
         worst = None
         pair = (members[0], members[0])
         for i in range(len(members)):
             for j in range(i + 1, len(members)):
-                value = shingle_overlap(texts[members[i]], texts[members[j]])
-                # Seeded with None rather than 1.0: when the most distant pair
-                # scores exactly 1.0 the update never fires and the placeholder
-                # (i, i) survives into the report as a pair of one question,
-                # which reads as a contradiction rather than as a bug.
+                value = default_similarity(
+                    fingerprints[traces[members[i]].id], fingerprints[traces[members[j]].id]
+                )
                 if worst is None or value < worst:
                     worst, pair = value, (members[i], members[j])
         if worst is None:
@@ -322,6 +325,9 @@ def main() -> int:
     )
 
     print("## Pairwise similarity vs threshold\n")
+    print("Measure: the **overlap coefficient**, kept as the pre-v0.5 baseline so the")
+    print("comparison stays visible. The clustering section below uses the measure that")
+    print("actually ships. The two are not the same, and the difference is the point.\n")
     print("| threshold | recall | FP easy | FP same-passage | FP adversarial | F1 (worst) |")
     print("| --- | --- | --- | --- | --- | --- |")
     for row in rows:
@@ -346,6 +352,9 @@ def main() -> int:
     cluster_texts = [r.text for r in dev_orig]
     baseline = evaluate_clustering(cluster_texts, 0.99, 1, args.seed)
     print("## Clustering questions that are mostly distinct\n")
+    print("Measure: **default_similarity** -- Jaccard since v0.5. The diameters reported")
+    print("below use the same measure the clusterer did, so they can be compared against")
+    print("the threshold directly.\n")
     print(
         f"pool: {len(cluster_texts)} questions, {baseline['distinct']} distinct after folding. "
         f"There are only {baseline['correct_merge_available']} pairs that *should* merge, so "
